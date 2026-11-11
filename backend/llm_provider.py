@@ -135,7 +135,7 @@ class LLMBackend:
                 "loaded.\n\n"
                 "Please check your Configuration page:\n"
                 "- If provider = **groq**, make sure `GROQ_API_KEY` is set in `.env` "
-                "and the model name exists on Groq (e.g. `llama-3.3-70b-versatile`).\n"
+                "and the model name exists on Groq (e.g. `openai/gpt-oss-120b`).\n"
                 "- If provider = **huggingface**, set `llm_model_name` to a valid "
                 "Hugging Face repo id (e.g. `mistralai/Mistral-7B-Instruct-v0.3`) and "
                 "set `HUGGINGFACEHUB_API_TOKEN` in `.env` for private/gated models.\n"

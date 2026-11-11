@@ -30,7 +30,7 @@ class RAGConfig:
     # "openai"       -> ChatOpenAI (needs OPENAI_API_KEY)
     # "huggingface"  -> HuggingFaceEndpoint / ChatHuggingFace (needs HF token for private models)
     llm_provider: str = "groq"
-    llm_model_name: str = "llama-3.3-70b-versatile"
+    llm_model_name: str = "openai/gpt-oss-120b"
 
     # ---------------- Embeddings ----------------
     # "huggingface" -> HuggingFaceEmbeddings (any HF model or local path)

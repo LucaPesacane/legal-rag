@@ -14,9 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.config import RAGConfig  # noqa: E402
 from backend.llm_provider import LLMBackend  # noqa: E402
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
-models = sys.argv[1:] or ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+models = sys.argv[1:] or ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
 for model in models:
     cfg = RAGConfig(llm_provider="groq", llm_model_name=model)
     t0 = time.time()
