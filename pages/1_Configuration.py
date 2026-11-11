@@ -41,7 +41,7 @@ with col2:
         "LLM Model Name or Path",
         value=config.llm_model_name,
         help=(
-            "For Groq: e.g. `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`.\n"
+            "For Groq: e.g. `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`.\n"
             "For OpenAI: e.g. `gpt-4o-mini`.\n"
             "For Hugging Face: model id (e.g. `meta-llama/Llama-3.1-8B-Instruct`) "
             "or a local folder path."
