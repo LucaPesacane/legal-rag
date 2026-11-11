@@ -14,13 +14,11 @@ st.set_page_config(
 
 st.title("🧠 Agentic RAG Playground (LangChain)")
 
-if os.getenv("OPENAI_API_KEY"):
-    st.caption("🔑 OPENAI_API_KEY loaded from .env")
-else:
-    st.warning(
-        "OPENAI_API_KEY not found in environment. "
-        "Set it in your .env file if you want to use OpenAI."
-    )
+for key_name, provider in [("GROQ_API_KEY", "Groq"), ("OPENAI_API_KEY", "OpenAI")]:
+    if os.getenv(key_name):
+        st.caption(f"🔑 {key_name} loaded from .env")
+    else:
+        st.caption(f"⚠️ {key_name} not set (needed only to use {provider}).")
 
 st.markdown(
     """

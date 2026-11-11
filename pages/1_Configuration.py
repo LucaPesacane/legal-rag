@@ -25,11 +25,12 @@ col1, col2 = st.columns(2)
 with col1:
     config.llm_provider = st.selectbox(
         "LLM Provider",
-        options=["openai", "huggingface"],
-        index=["openai", "huggingface"].index(config.llm_provider)
-        if config.llm_provider in ["openai", "huggingface"]
+        options=["groq", "openai", "huggingface"],
+        index=["groq", "openai", "huggingface"].index(config.llm_provider)
+        if config.llm_provider in ["groq", "openai", "huggingface"]
         else 0,
         help=(
+            "- **groq**: Groq's OpenAI-compatible API (needs `GROQ_API_KEY` in `.env`).\n"
             "- **openai**: uses ChatOpenAI (needs `OPENAI_API_KEY` in `.env`).\n"
             "- **huggingface**: any HF generative model (hub id or local path)."
         ),
@@ -40,6 +41,7 @@ with col2:
         "LLM Model Name or Path",
         value=config.llm_model_name,
         help=(
+            "For Groq: e.g. `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`.\n"
             "For OpenAI: e.g. `gpt-4o-mini`.\n"
             "For Hugging Face: model id (e.g. `meta-llama/Llama-3.1-8B-Instruct`) "
             "or a local folder path."

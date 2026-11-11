@@ -26,10 +26,11 @@ class RAGConfig:
     """
 
     # ---------------- LLM ----------------
+    # "groq"         -> ChatOpenAI on Groq's OpenAI-compatible API (needs GROQ_API_KEY)
     # "openai"       -> ChatOpenAI (needs OPENAI_API_KEY)
     # "huggingface"  -> HuggingFaceEndpoint / ChatHuggingFace (needs HF token for private models)
-    llm_provider: str = "openai"
-    llm_model_name: str = "gpt-4o-mini"
+    llm_provider: str = "groq"
+    llm_model_name: str = "llama-3.3-70b-versatile"
 
     # ---------------- Embeddings ----------------
     # "huggingface" -> HuggingFaceEmbeddings (any HF model or local path)

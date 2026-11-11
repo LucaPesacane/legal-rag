@@ -20,6 +20,7 @@ class LLMBackend:
     """
     Unified interface for LLM providers:
 
+      - groq         → ChatOpenAI pointed at Groq's OpenAI-compatible endpoint
       - openai       → ChatOpenAI
       - huggingface  → HuggingFaceEndpoint + ChatHuggingFace
 
@@ -35,6 +36,30 @@ class LLMBackend:
         self.config = config
         self.max_new_tokens = 512
         self.temperature = 0.2
+
+    # ------------------------------------------------------------------
+    # GROQ (OpenAI-compatible API)
+    # ------------------------------------------------------------------
+    GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
+    def _build_groq_chat(self) -> Optional[BaseChatModel]:
+        # Groq exposes the same Chat Completions API as OpenAI, so ChatOpenAI
+        # works by changing base_url and api_key. Requires GROQ_API_KEY in .env.
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            print("[LLMBackend] GROQ_API_KEY not set.")
+            return None
+        return ChatOpenAI(
+            model=self.config.llm_model_name,
+            base_url=self.GROQ_BASE_URL,
+            api_key=api_key,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            # Free tier has per-minute limits: on HTTP 429 the client retries
+            # with exponential backoff instead of failing immediately.
+            max_retries=5,
+            timeout=60,
+        )
 
     # ------------------------------------------------------------------
     # OPENAI
@@ -88,6 +113,9 @@ class LLMBackend:
     def get_langchain_llm(self) -> Optional[BaseChatModel]:
         provider = self.config.llm_provider
 
+        if provider == "groq":
+            return self._build_groq_chat()
+
         if provider == "openai":
             return self._build_openai_chat()
 
@@ -106,6 +134,8 @@ class LLMBackend:
                 "LLM provider is not correctly configured or the model could not be "
                 "loaded.\n\n"
                 "Please check your Configuration page:\n"
+                "- If provider = **groq**, make sure `GROQ_API_KEY` is set in `.env` "
+                "and the model name exists on Groq (e.g. `llama-3.3-70b-versatile`).\n"
                 "- If provider = **huggingface**, set `llm_model_name` to a valid "
                 "Hugging Face repo id (e.g. `mistralai/Mistral-7B-Instruct-v0.3`) and "
                 "set `HUGGINGFACEHUB_API_TOKEN` in `.env` for private/gated models.\n"
