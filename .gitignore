@@ -3,3 +3,5 @@ data/
 .env
 __pycache__/
 *.pyc   
+# FAISS DBs: rebuilt with scripts/build_indexes.py
+vector_store*/

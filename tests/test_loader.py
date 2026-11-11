@@ -33,6 +33,12 @@ def test_article_number_from_text(docs):
     assert d.metadata["articles_cited"] == ["Art. 279"]
 
 
+def test_every_code_article_has_a_number(docs):
+    codes = [d for d in docs if d.metadata["doc_type"] == "code"]
+    missing = [d.metadata["id"] for d in codes if d.metadata["article"] is None]
+    assert len(missing) <= 2, missing
+
+
 def test_long_documents_are_split_with_header(docs):
     parts = [d for d in docs if d.metadata["n_chunks"] > 1]
     assert parts

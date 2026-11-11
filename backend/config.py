@@ -58,11 +58,19 @@ class RAGConfig:
     vector_store_dir: str = "vector_store"
 
     # Optional: multiple DBs (multi-DB mode)
-    # Example: ["vector_store/divorce_db", "vector_store/succession_db"]
-    vector_store_dirs: List[str] = field(default_factory=list)
+    # Default: the 9 DBs country x knowledge base built by scripts/build_indexes.py
+    vector_store_dirs: List[str] = field(default_factory=lambda: [
+        f"vector_store/{country}_{kb}"
+        for country in ("italy", "estonia", "slovenia")
+        for kb in ("inheritance_code", "divorce_code", "cases")
+    ])
 
     # ---------------- Retrieval ----------------
     top_k: int = 5
+    # documents retrieved from each DB before filtering and reranking
+    k_fetch: int = 20
+    # minimum cosine similarity to keep a document
+    min_sim: float = 0.3
     # Reserved for future reranking strategies; currently not used in the pipeline.
     use_rerank: bool = False
 

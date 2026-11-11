@@ -27,11 +27,12 @@ def clean_text(text: str) -> str:
 
 
 def article_number(text: str) -> Optional[str]:
-    # The article number is in the first lines of the text ("580", "10.", "768-TER").
+    # The article number is in the first lines of the text
+    # ("580", "10.", "768-TER", "ARTICLE 160").
     # civil_codes_used is NOT reliable for this: sometimes it is an article
     # cited inside the text (e.g. file Article_279.json contains article 580).
     for line in text.splitlines()[:3]:
-        m = re.fullmatch(r"(\d+[a-z]?(?:\.\d+)?(?:-[A-Z]+)?)\.?", line, re.I)
+        m = re.fullmatch(r"(?:art(?:icle)?\.?\s*)?(\d+[a-z]?(?:\.\d+)?(?:-[A-Z]+)?)\.?", line, re.I)
         if m:
             return m.group(1).upper()
     return None
