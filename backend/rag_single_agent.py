@@ -12,7 +12,7 @@ from langchain_core.documents import Document
 from .config import RAGConfig
 from .embeddings import get_embedding_model
 from .llm_provider import LLMBackend
-from .rag_utils import KB_DESCRIPTIONS, _get_vector_db_dirs, expand_query
+from .rag_utils import KB_DESCRIPTIONS, _get_vector_db_dirs, expand_query, fix_citations
 from .vector_store import search_vector_stores
 
 # Role of this module:
@@ -21,6 +21,27 @@ from .vector_store import search_vector_stores
 #   Action      -> vector retrieval on the chosen DBs (+ fallback on all DBs)
 #   Observation -> short summary of what was retrieved (computed, no LLM)
 #   Answer      -> final LLM call with the numbered sources
+
+# Answer rules, shared with the multi-agent system (Task B) for a fair comparison
+ANSWER_PROMPT = (
+    "You are a legal assistant on Italian, Estonian and Slovenian civil law "
+    "(inheritance and divorce). Answer ONLY with information from the numbered sources.\n"
+    "- Cite the sources right after each statement using ONLY the labels written before each "
+    "source (e.g. [S3]); never use an article number as a label.\n"
+    "- Always say which country a rule or case belongs to and name the articles.\n"
+    "- If several countries are involved, compare them and point out the differences.\n"
+    "- If the sources do not contain the answer, say so clearly; do not invent rules.\n"
+    "- Write the answer in the same language as the question (an English question gets an "
+    "English answer, even if it is about Italy), clearly and concisely."
+)
+NO_SOURCES_PROMPT = (
+    "You are a legal assistant specialized in inheritance and divorce law of Italy, Estonia "
+    "and Slovenia. No document from the database was used for this answer.\n"
+    "- If the question is outside inheritance and divorce law, say that this system only "
+    "covers those topics and do not give legal details.\n"
+    "- Otherwise answer briefly from general knowledge and say that the answer is not based "
+    "on the Italian, Estonian or Slovenian sources of the system."
+)
 
 
 # =====================================================================
@@ -152,35 +173,22 @@ def single_agent_answer_question(
 
     # ---- Answer ----
     if docs:
-        system_prompt = (
-            "You are a legal assistant on Italian, Estonian and Slovenian civil law "
-            "(inheritance and divorce). Answer ONLY with information from the numbered sources.\n"
-            "- Cite the sources you use as [S1], [S2], ... right after each statement.\n"
-            "- Always say which country a rule or case belongs to and name the articles.\n"
-            "- If several countries are involved, compare them and point out the differences.\n"
-            "- If the sources do not contain the answer, say so clearly; do not invent rules.\n"
-            "- Answer in the language of the question, clearly and concisely."
-        )
+        system_prompt = ANSWER_PROMPT
         user_prompt = f"Sources:\n{_build_context(docs)}\n\nSummary of the retrieval:\n{observation}\n\nQuestion:\n{question}"
     else:
-        system_prompt = (
-            "You are a legal assistant specialized in inheritance and divorce law of Italy, Estonia "
-            "and Slovenia. No document from the database was used for this answer.\n"
-            "- If the question is outside inheritance and divorce law, say that this system only "
-            "covers those topics and do not give legal details.\n"
-            "- Otherwise answer briefly from general knowledge and say that the answer is not based "
-            "on the Italian, Estonian or Slovenian sources of the system."
-        )
+        system_prompt = NO_SOURCES_PROMPT
         user_prompt = question
 
     answer = llm_backend.chat(system_prompt, user_prompt)
     answer = answer.replace("【", "[").replace("】", "]")  # gpt-oss sometimes uses these brackets
+    answer, n_invalid = fix_citations(answer, len(docs))
 
     reasoning_trace: Optional[str] = None
     if show_reasoning:
         reasoning_trace = (
             f"**Thought**: retrieval needed = {need_retrieval}. {reason}\n\n"
             f"**Action**: {action}\n\n"
-            f"**Observation**:\n```text\n{observation}\n```"
+            f"**Observation**:\n```text\n{observation}\n```\n\n"
+            f"**Citation check**: {n_invalid} citation(s) to non-existing sources removed."
         )
     return answer, docs, reasoning_trace
