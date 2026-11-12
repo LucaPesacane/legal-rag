@@ -46,4 +46,4 @@ def test_long_documents_are_split_with_header(docs):
 
 
 def test_clean_text():
-    assert clean_text("580 TITLE\xa0 here\n\n  body ") == "580\nTITLE here\nbody"
+    assert clean_text("580\u2028TITLE\xa0 here\n\n  body ") == "580\nTITLE here\nbody"

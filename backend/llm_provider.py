@@ -43,8 +43,7 @@ class LLMBackend:
     GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
     def _build_groq_chat(self) -> Optional[BaseChatModel]:
-        # Groq exposes the same Chat Completions API as OpenAI, so ChatOpenAI
-        # works by changing base_url and api_key. Requires GROQ_API_KEY in .env.
+        # Groq has the same API as OpenAI: only base_url and api_key change
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             print("[LLMBackend] GROQ_API_KEY not set.")
@@ -55,9 +54,7 @@ class LLMBackend:
             api_key=api_key,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-            # Free tier has per-minute limits: on HTTP 429 the client retries
-            # with exponential backoff instead of failing immediately.
-            max_retries=5,
+            max_retries=5,  # free tier limits: retry on HTTP 429
             timeout=60,
         )
 

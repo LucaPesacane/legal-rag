@@ -119,7 +119,6 @@ def _observation(db_names: List[str], docs: List[Document]) -> str:
     articles = Counter(
         f"{d.metadata['country']} art. {d.metadata['article']}" for d in docs if d.metadata.get("article")
     )
-    cited = Counter(a for d in docs if d.metadata["doc_type"] == "case" for a in d.metadata.get("articles_cited", []))
     cases = [f"{d.metadata['case_id']} ({d.metadata['score']:.2f})" for d in docs if d.metadata["doc_type"] == "case"]
 
     lines = [
@@ -129,8 +128,6 @@ def _observation(db_names: List[str], docs: List[Document]) -> str:
     ]
     if articles:
         lines.append("Code articles: " + ", ".join(a for a, _ in articles.most_common(6)))
-    if cited:
-        lines.append("Articles cited in the cases: " + ", ".join(a for a, _ in cited.most_common(5)))
     if cases:
         lines.append("Most similar cases: " + "; ".join(cases[:3]))
     return "\n".join(lines)

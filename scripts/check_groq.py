@@ -1,9 +1,3 @@
-"""Smoke test: verifies that the Groq provider answers through LLMBackend.
-
-Usage (from the repo root, venv active):
-    python scripts/check_groq.py
-    python scripts/check_groq.py llama-3.1-8b-instant
-"""
 import sys
 import time
 from pathlib import Path
@@ -11,8 +5,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from backend.config import RAGConfig  # noqa: E402
-from backend.llm_provider import LLMBackend  # noqa: E402
+from backend.config import RAGConfig
+from backend.llm_provider import LLMBackend
+
+# Checks that the Groq models answer through LLMBackend.
+# Usage (from the repo root): python scripts/check_groq.py [model ...]
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
