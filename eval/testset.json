@@ -112,9 +112,9 @@
    "reference": "Intestate succession is the transfer of a deceased person's estate according to the rules of law, which apply when the person left no valid will (or the will covers only part of the estate); the law then determines the heirs and their shares, usually by degree of kinship and with the surviving spouse.",
    "expected_dbs": [], "gold_ids": []},
   {"id": "q37", "split": "dev", "category": "out_of_domain", "question": "What is the penalty for theft in Italy?",
-   "reference": "This system only covers inheritance and divorce law of Italy, Estonia and Slovenia, so it cannot answer questions about criminal penalties.",
+   "reference": "Theft in Italy is a crime under the Italian Criminal Code, punished with imprisonment and a fine, with higher penalties for aggravated theft. This is general knowledge: it is not based on the sources of the system, which is specialized in inheritance and divorce law of Italy, Estonia and Slovenia.",
    "expected_dbs": [], "gold_ids": []},
   {"id": "q38", "split": "holdout", "category": "out_of_domain", "question": "How do I register a car in Estonia?",
-   "reference": "This system only covers inheritance and divorce law of Italy, Estonia and Slovenia, so it cannot answer questions about car registration.",
+   "reference": "In Estonia vehicles are registered with the Transport Administration (Transpordiamet), which issues the registration certificate and plates. This is general knowledge: it is not based on the sources of the system, which is specialized in inheritance and divorce law of Italy, Estonia and Slovenia.",
    "expected_dbs": [], "gold_ids": []}
 ]

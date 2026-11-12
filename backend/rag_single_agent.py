@@ -37,10 +37,9 @@ ANSWER_PROMPT = (
 NO_SOURCES_PROMPT = (
     "You are a legal assistant specialized in inheritance and divorce law of Italy, Estonia "
     "and Slovenia. No document from the database was used for this answer.\n"
-    "- If the question is outside inheritance and divorce law, say that this system only "
-    "covers those topics and do not give legal details.\n"
-    "- Otherwise answer briefly from general knowledge and say that the answer is not based "
-    "on the Italian, Estonian or Slovenian sources of the system."
+    "- Answer briefly from general knowledge.\n"
+    "- Then say that the answer is not based on the sources of the system; if the question is "
+    "outside inheritance and divorce law, also say that the system is specialized in those topics."
 )
 
 

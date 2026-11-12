@@ -1,33 +1,18 @@
 # pages/4_RAG_Evaluation.py
 
-import os
 import json
 from pathlib import Path
 from typing import List, Dict, Any
 
-import pandas as pd
 import streamlit as st
 from datasets import Dataset
 
-from ragas import RunConfig, evaluate
-from ragas.metrics import (
-    answer_relevancy,
-    faithfulness,
-    context_precision,
-    context_recall,
-    answer_correctness,
-)
-
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-
 from backend.config import RAGConfig
-from backend.embeddings import get_embedding_model
-from backend.llm_provider import LLMBackend
+from backend.ragas_eval import build_ragas_dataset_from_answers, compare_systems, run_ragas
 
 CHAT_DB_PATH = Path("chat_sessions.json")
 # answers of Task A and Task B on the test set, written by eval/run_eval.py
 ANSWERS_PATH = Path("eval/results/answers_dev.jsonl")
-TESTSET_PATH = Path("eval/testset.json")
 
 
 # ---------------------------------------------------------------------
@@ -131,52 +116,6 @@ def build_ragas_dataset_from_chats(chat_db: List[Dict[str, Any]]) -> Dataset:
     return Dataset.from_list(rows)
 
 
-def build_ragas_dataset_from_answers() -> Dataset:
-    """Rows from the test set run: the ground truth is the reference answer of the
-    test set and `chat_id` is "<question id>/<single|multi>" (Task A / Task B)."""
-    references = {q["question"]: q["reference"] for q in json.load(open(TESTSET_PATH, encoding="utf-8"))}
-    rows = []
-    with open(ANSWERS_PATH, encoding="utf-8") as f:
-        for line in f:
-            r = json.loads(line)
-            rows.append({
-                "question": r["question"],
-                "answer": r["answer"],
-                "contexts": r["contexts"],
-                "ground_truth": references.get(r["question"], ""),
-                "chat_id": f"{r['session_id']}/{r['mode']}",
-            })
-    return Dataset.from_list(rows)
-
-
-# ---------------------------------------------------------------------
-# Ragas evaluation models
-# ---------------------------------------------------------------------
-def get_ragas_models(config: RAGConfig):
-    """
-    Create LangChain LLM + embeddings for Ragas to use.
-
-    - Groq judge (config.judge_model_name, a different family from the generator)
-      if GROQ_API_KEY is set, otherwise OpenAI gpt-4o-mini;
-    - the same embedding model used by the RAG system.
-    """
-    if os.getenv("GROQ_API_KEY"):
-        judge_config = RAGConfig(llm_provider="groq", llm_model_name=config.judge_model_name, temperature=0.0)
-        eval_llm = LLMBackend(judge_config).get_langchain_llm()
-        return eval_llm, get_embedding_model(config)
-
-    if not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError("Set GROQ_API_KEY or OPENAI_API_KEY in .env before running RAGAS evaluation.")
-
-    eval_llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.0,
-    )
-    eval_embeddings = OpenAIEmbeddings(
-        model="text-embedding-3-small",
-    )
-    return eval_llm, eval_embeddings
-
 
 # ---------------------------------------------------------------------
 # Streamlit UI
@@ -223,7 +162,7 @@ if data_source.startswith("Test set"):
     if not ANSWERS_PATH.exists():
         st.warning(f"`{ANSWERS_PATH}` not found: run `python eval/run_eval.py` first.")
         st.stop()
-    dataset = build_ragas_dataset_from_answers()
+    dataset = build_ragas_dataset_from_answers(ANSWERS_PATH)
 else:
     chat_db = load_chat_db()
     if not chat_db:
@@ -347,80 +286,24 @@ dataset_eval = Dataset.from_pandas(df_eval, preserve_index=False)
 # Run evaluation
 # ---------------------------------------------------------------------
 if st.button("Run RAGAS evaluation"):
-    try:
-        eval_llm, eval_embeddings = get_ragas_models(config)
-    except RuntimeError as e:
-        st.error(str(e))
-        st.stop()
-
-    # Groq returns one completion per call: answer_relevancy must ask for 1, not 3
-    answer_relevancy.strictness = 1
-
-    # Metrics to compute:
-    metrics = [
-        context_precision,
-        context_recall,
-        faithfulness,
-        answer_relevancy,
-        answer_correctness,
-    ]
-
     with st.spinner("Running RAGAS metrics..."):
         try:
-            result = evaluate(
-                dataset=dataset_eval,
-                metrics=metrics,
-                llm=eval_llm,
-                embeddings=eval_embeddings,
-                show_progress=True,
-                # few parallel calls: the free tier allows 8000 tokens per minute
-                run_config=RunConfig(max_workers=2, timeout=300),
-            )
+            df_scores = run_ragas(dataset_eval, config)
         except Exception as e:
             st.error(f"Error during RAGAS evaluation: {e}")
             st.stop()
 
     st.success("Evaluation completed.")
     st.subheader("Per-row metric scores")
-
-    # Result → pandas
-    try:
-        df_scores = result.to_pandas()
-    except Exception as e:
-        st.error(f"Could not convert RAGAS result to pandas: {e}")
-        st.stop()
-
-    df_scores["chat_id"] = df_eval["chat_id"].values  # same row order as the input
     st.dataframe(df_scores, width="stretch")
 
-    # Compute overall mean per metric
-    non_metric_cols = {"question", "answer", "contexts", "ground_truth", "chat_id"}
-
-    numeric_metric_cols = [
-        c
-        for c in df_scores.columns
-        if c not in non_metric_cols and str(df_scores[c].dtype) not in ("object", "string")
-    ]
-
-    if not numeric_metric_cols:
-        st.warning(
-            "No numeric metric columns found in the RAGAS result. "
-            "Check that the metrics ran correctly."
-        )
+    if df_scores["chat_id"].astype(str).str.contains("/").all():
+        st.subheader("Task A vs Task B (mean scores)")
+        st.dataframe(compare_systems(df_scores), width="stretch")
     else:
         st.subheader("Aggregated (mean) scores")
-        for col in numeric_metric_cols:
-            mean_score = float(df_scores[col].mean())
-            st.write(f"{col}: {mean_score:.3f}")
+        st.dataframe(df_scores.mean(numeric_only=True).round(3), width="stretch")
 
-        # Performance table Task A vs Task B (test set answers only)
-        if df_scores["chat_id"].astype(str).str.contains("/").all():
-            df_scores["system"] = df_scores["chat_id"].str.split("/").str[1].map(
-                {"single": "Task A - single agent", "multi": "Task B - multi-agent"})
-            st.subheader("Task A vs Task B")
-            st.dataframe(df_scores.groupby("system")[numeric_metric_cols].mean().round(3), width="stretch")
-
-        out = Path("eval/results") / f"ragas_{pd.Timestamp.now():%Y%m%d_%H%M}.csv"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        df_scores.to_csv(out, index=False)
-        st.caption(f"Scores saved in `{out}`")
+    out = Path("eval/results/ragas_page.csv")
+    df_scores.to_csv(out, index=False)
+    st.caption(f"Scores saved in `{out}`")
