@@ -31,6 +31,12 @@ class RAGConfig:
     # "huggingface"  -> HuggingFaceEndpoint / ChatHuggingFace (needs HF token for private models)
     llm_provider: str = "groq"
     llm_model_name: str = "openai/gpt-oss-120b"
+    # smaller and faster model for the routing decision (Thought step)
+    router_model_name: str = "openai/gpt-oss-20b"
+    # low temperature: answers faithful to the sources and reproducible
+    temperature: float = 0.1
+    # gpt-oss models also spend tokens on reasoning before the answer
+    max_tokens: int = 2000
 
     # ---------------- Embeddings ----------------
     # "huggingface" -> HuggingFaceEmbeddings (any HF model or local path)
@@ -79,7 +85,7 @@ class RAGConfig:
     #   - "standard_rag"  -> classic RAG (vector retrieval + answer)
     #   - "react"         -> ReAct-style agentic RAG (Thought / Action / Observation)
     #   - "hybrid_legal"  -> hybrid legal RAG (metadata extraction + metadata-aware vector search)
-    agentic_mode: str = "standard_rag"
+    agentic_mode: str = "react"
 
     # Multi-agent supervisor switch (used only in rag_pipeline for multi-DB agent routing)
     use_multiagent: bool = False

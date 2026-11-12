@@ -34,8 +34,8 @@ class LLMBackend:
 
     def __init__(self, config: RAGConfig):
         self.config = config
-        self.max_new_tokens = 512
-        self.temperature = 0.2
+        self.max_new_tokens = getattr(config, "max_tokens", 512)
+        self.temperature = getattr(config, "temperature", 0.2)
 
     # ------------------------------------------------------------------
     # GROQ (OpenAI-compatible API)
