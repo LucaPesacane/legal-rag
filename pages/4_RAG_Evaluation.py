@@ -5,10 +5,11 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any
 
+import pandas as pd
 import streamlit as st
 from datasets import Dataset
 
-from ragas import evaluate
+from ragas import RunConfig, evaluate
 from ragas.metrics import (
     answer_relevancy,
     faithfulness,
@@ -20,8 +21,13 @@ from ragas.metrics import (
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from backend.config import RAGConfig
+from backend.embeddings import get_embedding_model
+from backend.llm_provider import LLMBackend
 
 CHAT_DB_PATH = Path("chat_sessions.json")
+# answers of Task A and Task B on the test set, written by eval/run_eval.py
+ANSWERS_PATH = Path("eval/results/answers_dev.jsonl")
+TESTSET_PATH = Path("eval/testset.json")
 
 
 # ---------------------------------------------------------------------
@@ -125,22 +131,42 @@ def build_ragas_dataset_from_chats(chat_db: List[Dict[str, Any]]) -> Dataset:
     return Dataset.from_list(rows)
 
 
+def build_ragas_dataset_from_answers() -> Dataset:
+    """Rows from the test set run: the ground truth is the reference answer of the
+    test set and `chat_id` is "<question id>/<single|multi>" (Task A / Task B)."""
+    references = {q["question"]: q["reference"] for q in json.load(open(TESTSET_PATH, encoding="utf-8"))}
+    rows = []
+    with open(ANSWERS_PATH, encoding="utf-8") as f:
+        for line in f:
+            r = json.loads(line)
+            rows.append({
+                "question": r["question"],
+                "answer": r["answer"],
+                "contexts": r["contexts"],
+                "ground_truth": references.get(r["question"], ""),
+                "chat_id": f"{r['session_id']}/{r['mode']}",
+            })
+    return Dataset.from_list(rows)
+
+
 # ---------------------------------------------------------------------
-# Ragas evaluation models (OpenAI via LangChain)
+# Ragas evaluation models
 # ---------------------------------------------------------------------
-def get_ragas_models():
+def get_ragas_models(config: RAGConfig):
     """
     Create LangChain LLM + embeddings for Ragas to use.
 
-    Uses:
-      - ChatOpenAI("gpt-4o-mini")
-      - OpenAIEmbeddings("text-embedding-3-small")
+    - Groq judge (config.judge_model_name, a different family from the generator)
+      if GROQ_API_KEY is set, otherwise OpenAI gpt-4o-mini;
+    - the same embedding model used by the RAG system.
     """
+    if os.getenv("GROQ_API_KEY"):
+        judge_config = RAGConfig(llm_provider="groq", llm_model_name=config.judge_model_name, temperature=0.0)
+        eval_llm = LLMBackend(judge_config).get_langchain_llm()
+        return eval_llm, get_embedding_model(config)
+
     if not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError(
-            "OPENAI_API_KEY is not set. Please add it to your .env "
-            "or environment before running RAGAS evaluation."
-        )
+        raise RuntimeError("Set GROQ_API_KEY or OPENAI_API_KEY in .env before running RAGAS evaluation.")
 
     eval_llm = ChatOpenAI(
         model="gpt-4o-mini",
@@ -187,20 +213,29 @@ with st.expander("ℹ️ What do these metrics mean?"):
         "All metrics are in [0, 1]. Higher is better. Use them to compare different RAG settings and pipelines."
     )
 
-# Load chat DB
-chat_db = load_chat_db()
-if not chat_db:
-    st.warning(
-        f"No chat sessions found in `{CHAT_DB_PATH}`. "
-        "Go to the Chatbot Q&A page, have some conversations, "
-        "and make sure you save chats before evaluating."
-    )
-    st.stop()
+# Data to evaluate: answers of Task A and Task B on the test set, or saved chats
+data_source = st.radio(
+    "Data to evaluate",
+    [f"Test set answers ({ANSWERS_PATH.name})", f"Saved chats ({CHAT_DB_PATH.name})"],
+    horizontal=True,
+)
+if data_source.startswith("Test set"):
+    if not ANSWERS_PATH.exists():
+        st.warning(f"`{ANSWERS_PATH}` not found: run `python eval/run_eval.py` first.")
+        st.stop()
+    dataset = build_ragas_dataset_from_answers()
+else:
+    chat_db = load_chat_db()
+    if not chat_db:
+        st.warning(
+            f"No chat sessions found in `{CHAT_DB_PATH}`. "
+            "Go to the Chatbot Q&A page, have some conversations, "
+            "and make sure you save chats before evaluating."
+        )
+        st.stop()
+    st.success(f"Loaded {len(chat_db)} saved chat session(s).")
+    dataset = build_ragas_dataset_from_chats(chat_db)
 
-st.success(f"Loaded {len(chat_db)} saved chat session(s).")
-
-# Build dataset and convert to DataFrame for manual editing
-dataset = build_ragas_dataset_from_chats(chat_db)
 num_rows = len(dataset)
 
 if num_rows == 0:
@@ -228,9 +263,9 @@ df_edited = st.data_editor(
         "answer": st.column_config.TextColumn("Answer", disabled=True),
         "contexts": st.column_config.ListColumn("Contexts", disabled=True),
         "ground_truth": st.column_config.TextColumn("Ground truth (optional label)"),
-        "chat_id": st.column_config.NumberColumn("Chat ID", disabled=True),
+        "chat_id": st.column_config.TextColumn("Chat ID", disabled=True),
     },
-    use_container_width=True,
+    width="stretch",
     key="ragas_gt_editor",
 )
 
@@ -313,10 +348,13 @@ dataset_eval = Dataset.from_pandas(df_eval, preserve_index=False)
 # ---------------------------------------------------------------------
 if st.button("Run RAGAS evaluation"):
     try:
-        eval_llm, eval_embeddings = get_ragas_models()
+        eval_llm, eval_embeddings = get_ragas_models(config)
     except RuntimeError as e:
         st.error(str(e))
         st.stop()
+
+    # Groq returns one completion per call: answer_relevancy must ask for 1, not 3
+    answer_relevancy.strictness = 1
 
     # Metrics to compute:
     metrics = [
@@ -335,6 +373,8 @@ if st.button("Run RAGAS evaluation"):
                 llm=eval_llm,
                 embeddings=eval_embeddings,
                 show_progress=True,
+                # few parallel calls: the free tier allows 8000 tokens per minute
+                run_config=RunConfig(max_workers=2, timeout=300),
             )
         except Exception as e:
             st.error(f"Error during RAGAS evaluation: {e}")
@@ -350,7 +390,8 @@ if st.button("Run RAGAS evaluation"):
         st.error(f"Could not convert RAGAS result to pandas: {e}")
         st.stop()
 
-    st.dataframe(df_scores, use_container_width=True)
+    df_scores["chat_id"] = df_eval["chat_id"].values  # same row order as the input
+    st.dataframe(df_scores, width="stretch")
 
     # Compute overall mean per metric
     non_metric_cols = {"question", "answer", "contexts", "ground_truth", "chat_id"}
@@ -371,3 +412,15 @@ if st.button("Run RAGAS evaluation"):
         for col in numeric_metric_cols:
             mean_score = float(df_scores[col].mean())
             st.write(f"{col}: {mean_score:.3f}")
+
+        # Performance table Task A vs Task B (test set answers only)
+        if df_scores["chat_id"].astype(str).str.contains("/").all():
+            df_scores["system"] = df_scores["chat_id"].str.split("/").str[1].map(
+                {"single": "Task A - single agent", "multi": "Task B - multi-agent"})
+            st.subheader("Task A vs Task B")
+            st.dataframe(df_scores.groupby("system")[numeric_metric_cols].mean().round(3), width="stretch")
+
+        out = Path("eval/results") / f"ragas_{pd.Timestamp.now():%Y%m%d_%H%M}.csv"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        df_scores.to_csv(out, index=False)
+        st.caption(f"Scores saved in `{out}`")

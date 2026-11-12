@@ -177,7 +177,7 @@ def single_agent_answer_question(
         user_prompt = question
 
     answer = llm_backend.chat(system_prompt, user_prompt)
-    answer = answer.replace("【", "[").replace("】", "]")  # gpt-oss sometimes uses these brackets
+    answer = answer.replace("【", "[").replace("】", "]").replace("\u200b", "")  # gpt-oss sometimes writes odd brackets or invisible spaces
     answer, n_invalid = fix_citations(answer, len(docs))
 
     reasoning_trace: Optional[str] = None

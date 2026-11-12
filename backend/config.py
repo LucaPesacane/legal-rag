@@ -33,6 +33,8 @@ class RAGConfig:
     llm_model_name: str = "openai/gpt-oss-120b"
     # smaller and faster model for the routing decision (Thought step)
     router_model_name: str = "openai/gpt-oss-20b"
+    # RAGAS judge: a different model family from the generator (less self-preference bias)
+    judge_model_name: str = "qwen/qwen3.8-27b"
     # low temperature: answers faithful to the sources and reproducible
     temperature: float = 0.1
     # gpt-oss models also spend tokens on reasoning before the answer

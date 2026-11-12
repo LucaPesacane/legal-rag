@@ -129,7 +129,7 @@ def multiagent_answer_question(
             "- Answer in the language of the question."
         )
         answer = supervisor.chat(system_prompt, f"Question:\n{question}\n\nPartial answers:\n{blocks}")
-    answer = answer.replace("【", "[").replace("】", "]")
+    answer = answer.replace("【", "[").replace("】", "]").replace("\u200b", "")
     answer, n_invalid = fix_citations(answer, len(all_docs))
 
     trace: Optional[str] = None
