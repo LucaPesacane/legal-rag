@@ -5,3 +5,6 @@ __pycache__/
 *.pyc   
 # FAISS DBs: rebuilt with scripts/build_indexes.py
 vector_store*/
+
+# Conversation logs (may contain user data)
+logs/
