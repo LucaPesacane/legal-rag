@@ -36,7 +36,7 @@ class RAGConfig:
     # "huggingface" -> HuggingFaceEmbeddings (any HF model or local path)
     # "openai"      -> OpenAIEmbeddings
     embedding_provider: str = "huggingface"
-    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_model_name: str = "BAAI/bge-m3"
 
     # ---------------- Data (JSON corpus) ----------------
     # List of folders where JSON corpus lives
