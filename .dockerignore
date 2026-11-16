@@ -4,8 +4,6 @@
 __pycache__
 *.pyc
 .git
-# raw data and local experiments are not needed at runtime (the FAISS DBs are)
-data
+# local experiments and logs are not needed in the image
 vector_store_minilm
 logs
-eval/results

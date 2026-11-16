@@ -23,6 +23,8 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 COPY --chown=user . .
 
 ENV PYTHONUNBUFFERED=1
+# ragas imports GitPython, but git is not needed (and not installed) here
+ENV GIT_PYTHON_REFRESH=quiet
 ENV STREAMLIT_SERVER_PORT=8501
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
 

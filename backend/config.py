@@ -48,7 +48,7 @@ class RAGConfig:
 
     # ---------------- Data (JSON corpus) ----------------
     # List of folders where JSON corpus lives
-    json_folders: List[str] = field(default_factory=list)
+    json_folders: List[str] = field(default_factory=lambda: ["data/Contest_Data"])
 
     # ---------------- Vector stores (paths) ----------------
     # Root/base folder under which all FAISS vector DBs will be created.

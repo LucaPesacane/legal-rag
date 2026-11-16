@@ -48,6 +48,25 @@ with col2:
         ),
     )
 
+col_l1, col_l2 = st.columns(2)
+
+with col_l1:
+    config.router_model_name = st.text_input(
+        "Router / supervisor routing model",
+        value=config.router_model_name,
+        help="Smaller model used for the routing decision (Thought step of Task A, supervisor routing of Task B).",
+    )
+
+with col_l2:
+    config.temperature = st.slider(
+        "Temperature of the answers",
+        min_value=0.0,
+        max_value=1.0,
+        value=float(config.temperature),
+        step=0.05,
+        help="Low values give answers faithful to the sources and reproducible.",
+    )
+
 # ---------------- EMBEDDING SETTINGS ----------------
 st.subheader("Embedding Settings")
 
@@ -148,6 +167,22 @@ with col_r1:
         help="Number of documents kept after similarity-based filtering.",
     )
 
+    config.k_fetch = st.slider(
+        "Candidates retrieved from each DB (before filtering)",
+        min_value=5,
+        max_value=50,
+        value=config.k_fetch,
+        help="More candidates than needed are retrieved, then filtered and reranked by cosine similarity.",
+    )
+    config.min_sim = st.slider(
+        "Minimum cosine similarity",
+        min_value=0.0,
+        max_value=0.9,
+        value=float(config.min_sim),
+        step=0.05,
+        help="Documents below this similarity are discarded.",
+    )
+
 with col_r2:
     config.use_rerank = st.checkbox(
         "Use extra post-retrieval reranker (placeholder)",
@@ -168,8 +203,8 @@ config.agentic_mode = st.radio(
     if config.agentic_mode in ["standard_rag", "react", "hybrid_legal"]
     else 0,
     help=(
-        "- standard_rag: classic RAG.\n"
-        "- react: agentic reasoning (Thought / Action / Observation).\n"
+        "- standard_rag / react: Task A single agent with ReAct-style logic "
+        "(Thought / Action / Observation / Answer) and Task B multi-agent.\n"
         "- hybrid_legal: legal metadata extraction (Succession/Divorce + cost, "
         "duration, civil codes, etc.) + metadata-aware vector search."
     ),
