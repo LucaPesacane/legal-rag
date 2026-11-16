@@ -8,3 +8,7 @@ vector_store*/
 
 # Conversation logs (may contain user data)
 logs/
+
+# LaTeX build files
+*.aux
+*.log
