@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 from langchain_core.documents import Document
 
 from .config import RAGConfig
-from .embeddings import get_embedding_model
+from .embeddings import get_embedding_model, get_reranker
 from .llm_provider import LLMBackend
 from .rag_single_agent import ANSWER_PROMPT, NO_SOURCES_PROMPT
 from .rag_utils import KB_DESCRIPTIONS, _get_vector_db_dirs, expand_query, fix_citations
@@ -102,6 +102,7 @@ def multiagent_answer_question(
             search_query, [db_map[name]], embedding_model,
             k_fetch=config.k_fetch, top_k=config.top_k, min_sim=config.min_sim,
             law=law if config.filter_cases_by_law else None,
+            reranker=get_reranker(config) if config.use_rerank else None,
         )
         first_numbers[name] = len(all_docs) + 1
         agent_docs[name] = docs

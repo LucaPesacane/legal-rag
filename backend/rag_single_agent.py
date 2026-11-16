@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 from langchain_core.documents import Document
 
 from .config import RAGConfig
-from .embeddings import get_embedding_model
+from .embeddings import get_embedding_model, get_reranker
 from .llm_provider import LLMBackend
 from .rag_utils import KB_DESCRIPTIONS, _get_vector_db_dirs, expand_query, fix_citations
 from .vector_store import search_vector_stores
@@ -107,6 +107,7 @@ def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config
             question, paths, embedding_model,
             k_fetch=config.k_fetch, top_k=config.top_k, min_sim=config.min_sim,
             law=law if config.filter_cases_by_law else None,
+            reranker=get_reranker(config) if config.use_rerank else None,
         )
     return docs
 

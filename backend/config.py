@@ -82,8 +82,9 @@ class RAGConfig:
     # extension (guide 8): in the past cases DBs keep only the cases of the legal
     # area of the question (inheritance or divorce), before vector similarity
     filter_cases_by_law: bool = False
-    # Reserved for future reranking strategies; currently not used in the pipeline.
+    # extension (guide 8): second ranking of the retrieved documents with a cross-encoder
     use_rerank: bool = False
+    reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     # ---------------- Agentic behavior ----------------
     # agentic_mode:

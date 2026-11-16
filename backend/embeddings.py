@@ -1,12 +1,22 @@
 from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
+from sentence_transformers import CrossEncoder
 
 from .config import RAGConfig
 
 # Simple in-memory cache: {model name -> embedding model}
 # (loading bge-m3 takes ~10 s: it must happen once, not at every question)
 _EMBEDDING_CACHE: dict[str, Embeddings] = {}
+
+
+def get_reranker(config: RAGConfig) -> CrossEncoder:
+    """Cross-encoder that reads question and document together (more precise, slower):
+    used only to re-rank the few documents already retrieved by FAISS."""
+    key = f"reranker:{config.reranker_model_name}"
+    if key not in _EMBEDDING_CACHE:
+        _EMBEDDING_CACHE[key] = CrossEncoder(config.reranker_model_name, device="cpu")
+    return _EMBEDDING_CACHE[key]
 
 
 def get_embedding_model(config: RAGConfig) -> Embeddings:

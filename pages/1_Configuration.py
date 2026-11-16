@@ -185,13 +185,14 @@ with col_r1:
 
 with col_r2:
     config.use_rerank = st.checkbox(
-        "Use extra post-retrieval reranker (placeholder)",
+        "Use a cross-encoder reranker after retrieval (guide 8)",
         value=config.use_rerank,
         help=(
-            "Reserved flag for plugging in an advanced reranker later.\n"
-            "Current pipeline already does cosine-similarity filtering and reranking."
+            "After cosine filtering, a cross-encoder reads question and document together "
+            "and re-ranks the candidates (more precise, slower). Model below."
         ),
     )
+    config.reranker_model_name = st.text_input("Reranker model", value=config.reranker_model_name)
 
 # ---------------- AGENTIC MODE (within each RAG agent) ----------------
 st.subheader("Agentic RAG Reasoning Mode (per agent)")
