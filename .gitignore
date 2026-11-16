@@ -12,3 +12,6 @@ logs/
 # LaTeX build files
 *.aux
 *.log
+
+# RAGAS run logs
+eval/results/*_log*.txt

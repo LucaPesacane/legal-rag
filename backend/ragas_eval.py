@@ -27,6 +27,7 @@ from .llm_provider import LLMBackend
 # Used by the RAG Evaluation page and by eval/run_ragas.py.
 
 TESTSET_PATH = Path("eval/testset.json")
+METRICS = {m.name: m for m in [context_precision, context_recall, faithfulness, answer_relevancy, answer_correctness]}
 
 
 def build_ragas_dataset_from_answers(answers_path: Path) -> Dataset:
@@ -55,7 +56,9 @@ def get_ragas_models(config: RAGConfig):
     - the same embedding model used by the RAG system.
     """
     if os.getenv("GROQ_API_KEY"):
-        judge_config = RAGConfig(llm_provider="groq", llm_model_name=config.judge_model_name, temperature=0.0)
+        # qwen3 reasons before answering: a larger max_tokens avoids truncated judgements
+        judge_config = RAGConfig(llm_provider="groq", llm_model_name=config.judge_model_name,
+                                 temperature=0.0, max_tokens=8000)
         return LLMBackend(judge_config).get_langchain_llm(), get_embedding_model(config)
 
     if not os.getenv("OPENAI_API_KEY"):
@@ -63,8 +66,8 @@ def get_ragas_models(config: RAGConfig):
     return ChatOpenAI(model="gpt-4o-mini", temperature=0.0), OpenAIEmbeddings(model="text-embedding-3-small")
 
 
-def run_ragas(dataset: Dataset, config: RAGConfig) -> pd.DataFrame:
-    """Compute the 5 metrics; returns one row per answer (chat_id kept)."""
+def run_ragas(dataset: Dataset, config: RAGConfig, metric_names: list[str] | None = None) -> pd.DataFrame:
+    """Compute the metrics (all 5 by default); returns one row per answer (chat_id kept)."""
     eval_llm, eval_embeddings = get_ragas_models(config)
 
     # Groq returns one completion per call: answer_relevancy must ask for 1, not 3
@@ -72,7 +75,7 @@ def run_ragas(dataset: Dataset, config: RAGConfig) -> pd.DataFrame:
 
     result = evaluate(
         dataset=dataset,
-        metrics=[context_precision, context_recall, faithfulness, answer_relevancy, answer_correctness],
+        metrics=[METRICS[n] for n in (metric_names or METRICS)],
         llm=eval_llm,
         embeddings=eval_embeddings,
         show_progress=True,
