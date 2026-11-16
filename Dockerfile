@@ -19,7 +19,8 @@ COPY --chown=user requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # download the embedding model at build time, not at every start
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')"
+# (only the weights that are used: no ONNX version, no second safetensors copy)
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('BAAI/bge-m3', ignore_patterns=['onnx/*', '*.onnx*'])"
 
 COPY --chown=user . .
 
