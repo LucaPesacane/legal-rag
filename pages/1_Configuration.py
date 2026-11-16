@@ -212,6 +212,17 @@ config.agentic_mode = st.radio(
 
 
 # ---------------- MULTI-AGENT SUPERVISOR ----------------
+st.subheader("Extensions (exam guide 8)")
+
+config.filter_cases_by_law = st.checkbox(
+    "Filter past cases by legal area (inheritance / divorce)",
+    value=config.filter_cases_by_law,
+    help=(
+        "The router detects the legal area of the question; in the past cases DBs only the cases "
+        "of that area are searched (metadata filter first, then vector similarity)."
+    ),
+)
+
 st.subheader("Multi-agent Supervisor (tool-calling)")
 
 config.use_multiagent = st.checkbox(

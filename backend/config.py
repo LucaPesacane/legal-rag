@@ -79,6 +79,9 @@ class RAGConfig:
     k_fetch: int = 20
     # minimum cosine similarity to keep a document
     min_sim: float = 0.3
+    # extension (guide 8): in the past cases DBs keep only the cases of the legal
+    # area of the question (inheritance or divorce), before vector similarity
+    filter_cases_by_law: bool = False
     # Reserved for future reranking strategies; currently not used in the pipeline.
     use_rerank: bool = False
 

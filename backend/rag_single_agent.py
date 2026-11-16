@@ -46,7 +46,7 @@ NO_SOURCES_PROMPT = (
 # =====================================================================
 # Thought: retrieval decision + choice of the knowledge bases
 # =====================================================================
-def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[bool, List[str], str, str]:
+def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[bool, List[str], str, Optional[str], str]:
     kb_block = "\n".join(f"- {name}: {KB_DESCRIPTIONS.get(name, name)}" for name in db_map)
 
     system_prompt = (
@@ -60,9 +60,10 @@ def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[b
         "- Questions about heirs, wills, estates -> inheritance code (+ cases if useful).\n"
         "- Questions about past cases, court decisions, durations or costs -> cases.\n"
         "- When in doubt, retrieve.\n"
-        "Also write search_query: the question translated into English (the documents are in English).\n"
+        "Also write search_query: the question translated into English (the documents are in English),\n"
+        'and law: "Inheritance" or "Divorce" (null if the question concerns both or neither).\n'
         'Reply with JSON only: {"needs_retrieval": true, "databases": ["name", ...], '
-        '"search_query": "...", "reason": "short"}'
+        '"search_query": "...", "law": "Inheritance", "reason": "short"}'
     )
     user_prompt = f"Databases:\n{kb_block}\n\nQuestion:\n{question}"
 
@@ -77,19 +78,21 @@ def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[b
         reason = str(data.get("reason", ""))
         # query in English (language of the documents) + synonyms used by the three codes
         search_query = expand_query(str(data.get("search_query") or question))
+        law = data.get("law") if data.get("law") in ("Inheritance", "Divorce") else None
     except Exception:
         # invalid JSON: safest choice for a legal assistant is to search everything
-        return True, list(db_map), expand_query(question), f"Router output not valid JSON ({resp[:80]!r}) -> all databases."
+        return True, list(db_map), expand_query(question), None, f"Router output not valid JSON ({resp[:80]!r}) -> all databases."
 
     if need and not dbs:
-        return True, list(db_map), search_query, reason + " (no valid database named -> all databases)"
-    return need, dbs, search_query, reason
+        return True, list(db_map), search_query, law, reason + " (no valid database named -> all databases)"
+    return need, dbs, search_query, law, reason
 
 
 # =====================================================================
 # Action: retrieval (each country gets its own top_k)
 # =====================================================================
-def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config: RAGConfig) -> List[Document]:
+def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config: RAGConfig,
+              law: Optional[str] = None) -> List[Document]:
     embedding_model = get_embedding_model(config)
 
     # Group the chosen DBs by country: in comparative questions every country
@@ -103,6 +106,7 @@ def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config
         docs += search_vector_stores(
             question, paths, embedding_model,
             k_fetch=config.k_fetch, top_k=config.top_k, min_sim=config.min_sim,
+            law=law if config.filter_cases_by_law else None,
         )
     return docs
 
@@ -150,18 +154,20 @@ def single_agent_answer_question(
     llm_backend = LLMBackend(config)
 
     # ---- Thought ----
-    need_retrieval, db_names, search_query, reason = _decide(question, db_map, config)
+    need_retrieval, db_names, search_query, law, reason = _decide(question, db_map, config)
 
     # ---- Action ----
     docs: List[Document] = []
     action = "No retrieval: answer from general knowledge."
     if need_retrieval:
-        docs = _retrieve(search_query, db_names, db_map, config)
+        docs = _retrieve(search_query, db_names, db_map, config, law)
         action = f"Vector retrieval on: {', '.join(db_names)}\nSearch query: {search_query}"
+        if config.filter_cases_by_law and law:
+            action += f"\nPast cases filtered by law: {law}"
         # second ReAct step: nothing relevant in the chosen DBs -> widen the search
         if not docs and len(db_names) < len(db_map):
             db_names = list(db_map)
-            docs = _retrieve(search_query, db_names, db_map, config)
+            docs = _retrieve(search_query, db_names, db_map, config, law)
             action += "\n-> nothing relevant, retried on all databases"
 
     # ---- Observation ----

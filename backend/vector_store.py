@@ -80,16 +80,20 @@ def search_vector_stores(
     k_fetch: int = 20,
     top_k: int = 6,
     min_sim: float = 0.3,
+    law: str | None = None,
 ) -> List[Document]:
     """Search several DBs, merge the results and keep the top_k by cosine similarity.
-    Scores of different DBs are comparable (same model, normalized vectors)."""
+    Scores of different DBs are comparable (same model, normalized vectors).
+    If `law` is given, the past cases DBs return only cases of that legal area."""
     q_vec = embedding_model.embed_query(question)  # embed the question only once
 
     results: List[Document] = []
     for path in db_paths:
         vs = load_vector_store(path, embedding_model)
+        # metadata filter first, then vector similarity (only cases DBs mix the two areas)
+        filters = {"filter": {"law": law}, "fetch_k": 200} if law and path.endswith("_cases") else {}
         # retrieve more documents than needed, then filter and rerank
-        for doc, score in vs.similarity_search_with_score_by_vector(q_vec, k=k_fetch):
+        for doc, score in vs.similarity_search_with_score_by_vector(q_vec, k=k_fetch, **filters):
             if score >= min_sim:
                 meta = {**doc.metadata, "score": round(float(score), 4), "db_name": os.path.basename(path)}
                 results.append(Document(page_content=doc.page_content, metadata=meta))

@@ -29,7 +29,7 @@ NO_INFO = "NO RELEVANT INFORMATION"
 # =====================================================================
 # Supervisor step 1: which specialized agents?
 # =====================================================================
-def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[List[str], str, str]:
+def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[List[str], str, Optional[str], str]:
     agents_block = "\n".join(f"- {name}: {KB_DESCRIPTIONS.get(name, name)}" for name in db_map)
 
     system_prompt = (
@@ -40,8 +40,9 @@ def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> 
         "- comparisons or no country mentioned -> the agents of ALL the countries involved;\n"
         "- choose code agents for rules, case agents for past cases, durations, costs;\n"
         "- no agent (empty list) only for generic definitions or questions outside inheritance and divorce law.\n"
-        "Also write search_query: the question translated into English (the documents are in English).\n"
-        'Reply with JSON only: {"agents": ["name", ...], "search_query": "...", "reason": "short"}'
+        "Also write search_query: the question translated into English (the documents are in English),\n"
+        'and law: "Inheritance" or "Divorce" (null if the question concerns both or neither).\n'
+        'Reply with JSON only: {"agents": ["name", ...], "search_query": "...", "law": "Inheritance", "reason": "short"}'
     )
     user_prompt = f"Agents:\n{agents_block}\n\nQuestion:\n{question}"
 
@@ -51,9 +52,10 @@ def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> 
     try:
         data = json.loads(re.search(r"\{.*\}", resp, re.S).group())
         agents = [a for a in data.get("agents", []) if a in db_map]
-        return agents, expand_query(str(data.get("search_query") or question)), str(data.get("reason", ""))
+        law = data.get("law") if data.get("law") in ("Inheritance", "Divorce") else None
+        return agents, expand_query(str(data.get("search_query") or question)), law, str(data.get("reason", ""))
     except Exception:
-        return list(db_map), expand_query(question), f"Supervisor output not valid JSON ({resp[:80]!r}) -> all agents."
+        return list(db_map), expand_query(question), None, f"Supervisor output not valid JSON ({resp[:80]!r}) -> all agents."
 
 
 # =====================================================================
@@ -84,7 +86,7 @@ def multiagent_answer_question(
     supervisor = LLMBackend(config)
 
     # ---- Supervisor: routing ----
-    agents, search_query, reason = _choose_agents(question, db_map, config)
+    agents, search_query, law, reason = _choose_agents(question, db_map, config)
     if not agents:
         answer = supervisor.chat(NO_SOURCES_PROMPT, question)
         trace = f"**Supervisor**: no agent needed. {reason}" if show_reasoning else None
@@ -99,6 +101,7 @@ def multiagent_answer_question(
         docs = search_vector_stores(
             search_query, [db_map[name]], embedding_model,
             k_fetch=config.k_fetch, top_k=config.top_k, min_sim=config.min_sim,
+            law=law if config.filter_cases_by_law else None,
         )
         first_numbers[name] = len(all_docs) + 1
         agent_docs[name] = docs
@@ -141,7 +144,8 @@ def multiagent_answer_question(
         trace = (
             f"**Supervisor routing**: {', '.join(agents)}. {reason}\n\n"
             f"**Search query**: {search_query}\n\n"
-            f"**Specialized agents**:\n" + "\n".join(lines) + "\n\n"
+            + (f"**Past cases filtered by law**: {law}\n\n" if config.filter_cases_by_law and law else "")
+            + "**Specialized agents**:\n" + "\n".join(lines) + "\n\n"
             f"**Merge**: {len(useful)} useful answer(s), {merge}.\n\n"
             f"**Citation check**: {n_invalid} citation(s) to non-existing sources removed."
         )
