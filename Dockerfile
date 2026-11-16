@@ -3,7 +3,6 @@ FROM python:3.11-slim
 # Hugging Face Spaces run the container as user 1000
 RUN useradd -m -u 1000 user
 ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH
-WORKDIR /home/user/app
 
 # System deps (for FAISS, etc.)
 RUN apt-get update && apt-get install -y \
@@ -11,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 USER user
+# created by the user (not root), so the app can write logs/ and the vector DBs
+WORKDIR /home/user/app
 
 # CPU-only torch (the default Linux wheel includes CUDA, several GB not needed here)
 RUN pip install --no-cache-dir torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
