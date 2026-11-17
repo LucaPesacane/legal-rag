@@ -112,6 +112,7 @@ def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config
             k_fetch=config.k_fetch, top_k=config.top_k, min_sim=config.min_sim,
             law=law if config.filter_cases_by_law else None,
             reranker=get_reranker(config) if config.use_rerank else None,
+            rerank_candidates=config.rerank_candidates,
         )
     return docs
 

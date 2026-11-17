@@ -82,6 +82,7 @@ def search_vector_stores(
     min_sim: float = 0.3,
     law: str | None = None,
     reranker=None,
+    rerank_candidates: int = 10,
 ) -> List[Document]:
     """Search several DBs, merge the results and keep the top_k by cosine similarity.
     Scores of different DBs are comparable (same model, normalized vectors).
@@ -109,7 +110,9 @@ def search_vector_stores(
             kept.append(d)
 
     # optional second ranking (guide 8): the cross-encoder scores question and document together
+    # (only the first candidates by cosine, to keep it fast)
     if reranker and kept:
+        kept = kept[:rerank_candidates]
         scores = reranker.predict([(question, d.page_content) for d in kept])
         for d, s in zip(kept, scores):
             d.metadata["rerank_score"] = round(float(s), 4)

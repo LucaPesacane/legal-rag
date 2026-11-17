@@ -87,6 +87,8 @@ class RAGConfig:
     # extension (guide 8): second ranking of the retrieved documents with a cross-encoder
     use_rerank: bool = False
     reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    # only the first candidates by cosine are re-ranked (the cross-encoder is slow on CPU)
+    rerank_candidates: int = 10
 
     # ---------------- Agentic behavior ----------------
     # agentic_mode:

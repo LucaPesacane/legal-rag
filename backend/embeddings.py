@@ -15,7 +15,8 @@ def get_reranker(config: RAGConfig) -> CrossEncoder:
     used only to re-rank the few documents already retrieved by FAISS."""
     key = f"reranker:{config.reranker_model_name}"
     if key not in _EMBEDDING_CACHE:
-        _EMBEDDING_CACHE[key] = CrossEncoder(config.reranker_model_name, device="cpu")
+        # documents truncated to 256 tokens: enough to judge relevance, much faster on CPU
+        _EMBEDDING_CACHE[key] = CrossEncoder(config.reranker_model_name, device="cpu", max_length=256)
     return _EMBEDDING_CACHE[key]
 
 
