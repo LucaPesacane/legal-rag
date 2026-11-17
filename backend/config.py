@@ -74,7 +74,9 @@ class RAGConfig:
     ])
 
     # ---------------- Retrieval ----------------
-    top_k: int = 5
+    # documents kept per country (Task A) / per agent (Task B): the right document is
+    # in the first 3 in 96% of the dev questions, more documents add only noise
+    top_k: int = 3
     # documents retrieved from each DB before filtering and reranking
     k_fetch: int = 20
     # minimum cosine similarity to keep a document

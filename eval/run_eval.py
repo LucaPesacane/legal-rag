@@ -15,12 +15,14 @@ from backend.rag_single_agent import single_agent_answer_question
 # Runs Task A and Task B on the test set and saves one JSON line per answer
 # (same format as the chat log) in eval/results/answers_<split>.jsonl.
 # Then prints the metrics that need no LLM: routing, hit@5, MRR, citations, latency.
-# Usage (from the repo root): python eval/run_eval.py [dev|holdout]
+# Usage (from the repo root): python eval/run_eval.py [dev|holdout] [version tag]
+#   the tag keeps the results of different versions apart, e.g. answers_dev_v2.jsonl
 
 load_dotenv(".env")
 split = sys.argv[1] if len(sys.argv) > 1 else "dev"
+name = split + (f"_{sys.argv[2]}" if len(sys.argv) > 2 else "")
 testset = [q for q in json.load(open("eval/testset.json", encoding="utf-8")) if q["split"] == split]
-out = Path(f"eval/results/answers_{split}.jsonl")
+out = Path(f"eval/results/answers_{name}.jsonl")
 out.unlink(missing_ok=True)
 
 config = RAGConfig()
@@ -50,6 +52,6 @@ for q in testset:
         print(f"{q['id']} {mode:6s} {rec['latency_s']:5.1f}s sources={len(ids)} rank={rank}")
 
 df = pd.DataFrame(rows)
-df.to_csv(f"eval/results/retrieval_{split}.csv", index=False)
+df.to_csv(f"eval/results/retrieval_{name}.csv", index=False)
 print("\n", df.groupby("mode")[["routing_ok", "hit@5", "mrr", "n_sources", "latency_s"]].mean().round(3))
 print("\n", df.pivot_table(index="category", columns="mode", values="routing_ok", aggfunc="mean").round(2))
