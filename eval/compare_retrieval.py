@@ -13,16 +13,18 @@ from backend.rag_utils import _get_vector_db_dirs
 
 # Free comparison (no judge LLM) of a retrieval extension: same routing decision,
 # retrieval without and with the extension, hit@5 and MRR on the gold documents.
-# Usage (from the repo root): python eval/compare_retrieval.py <config_flag> [dev|holdout]
+# Usage (from the repo root): python eval/compare_retrieval.py <config_flag> [dev|holdout] [field=value ...]
 #   e.g. python eval/compare_retrieval.py filter_cases_by_law
+#        python eval/compare_retrieval.py use_rerank dev reranker_model_name=BAAI/bge-reranker-v2-m3
 
 load_dotenv(".env")
 flag = sys.argv[1]
-split = sys.argv[2] if len(sys.argv) > 2 else "dev"
+split = next((a for a in sys.argv[2:] if "=" not in a), "dev")
+overrides = dict(a.split("=", 1) for a in sys.argv[2:] if "=" in a)  # other config fields
 testset = [q for q in json.load(open("eval/testset.json", encoding="utf-8"))
            if q["split"] == split and q["gold_ids"]]
 
-base = RAGConfig()
+base = RAGConfig(**overrides)
 db_map = _get_vector_db_dirs(base)
 rows = []
 for q in testset:
@@ -41,4 +43,5 @@ for q in testset:
 df = pd.DataFrame(rows)
 print(df.pivot_table(index=["category"], columns=flag, values=["hit@5", "mrr", "same_law_cases"]).round(3))
 print("\nall questions:\n", df.groupby(flag)[["hit@5", "mrr", "same_law_cases"]].mean().round(3))
-df.to_csv(f"eval/results/compare_{flag}_{split}.csv", index=False)
+suffix = "".join(f"_{v.split('/')[-1]}" for v in overrides.values())
+df.to_csv(f"eval/results/compare_{flag}{suffix}_{split}.csv", index=False)
