@@ -184,6 +184,11 @@ with col_r1:
     )
 
 with col_r2:
+    config.search_original_question = st.checkbox(
+        "Search also with the original question (guide 8)",
+        value=config.search_original_question,
+        help="The DBs are searched with the English translation and with the question as written.",
+    )
     config.use_rerank = st.checkbox(
         "Use a cross-encoder reranker after retrieval (guide 8)",
         value=config.use_rerank,

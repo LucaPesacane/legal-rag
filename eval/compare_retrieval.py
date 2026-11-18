@@ -22,10 +22,11 @@ load_dotenv(".env")
 flag = sys.argv[1]
 split = next((a for a in sys.argv[2:] if "=" not in a), "dev")
 overrides = dict(a.split("=", 1) for a in sys.argv[2:] if "=" in a)  # other config fields
+overrides = {k: {"True": True, "False": False}.get(v, v) for k, v in overrides.items()}
 testset = [q for q in json.load(open("eval/testset.json", encoding="utf-8"))
            if q["split"] == split and q["gold_ids"]]
 
-base = RAGConfig(**overrides)
+base = replace(RAGConfig(**overrides), **{flag: False})  # "without" = the flag off
 db_map = _get_vector_db_dirs(base)
 # warm-up outside the timing: models are loaded once here
 _retrieve("warm up", list(db_map)[:1], db_map, replace(base, **{flag: True}))
@@ -35,7 +36,7 @@ for q in testset:
     need, dbs, query, law, _ = _decide(q["question"], db_map, base)  # one routing call per question
     for name, config in [("without", base), ("with", replace(base, **{flag: True}))]:
         start = time.time()
-        docs = _retrieve(query, dbs, db_map, config, law)
+        docs = _retrieve(query, dbs, db_map, config, law, q["question"])
         seconds = time.time() - start
         ids = [d.metadata["id"] for d in docs][:5]
         hit1 = int(bool(ids) and ids[0] in q["gold_ids"])
@@ -50,5 +51,5 @@ for q in testset:
 df = pd.DataFrame(rows)
 print(df.pivot_table(index=["category"], columns=flag, values=["hit@1", "hit@5", "mrr", "seconds"]).round(3))
 print("\nall questions:\n", df.groupby(flag)[["hit@1", "hit@5", "mrr", "same_law_cases", "seconds"]].mean().round(3))
-suffix = "".join(f"_{v.split('/')[-1]}" for v in overrides.values())
+suffix = "".join(f"_{str(v).split('/')[-1]}" for v in overrides.values())
 df.to_csv(f"eval/results/compare_{flag}{suffix}_{split}.csv", index=False)

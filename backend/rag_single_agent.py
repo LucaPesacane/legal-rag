@@ -33,6 +33,7 @@ ANSWER_PROMPT = (
     "- Cite the sources right after each statement using ONLY the labels written before each "
     "source (e.g. [S3]); never use an article number as a label.\n"
     "- Always say which country a rule or case belongs to and name the articles.\n"
+    "- For a past case give its number, duration and outcome (and the amounts, if any).\n"
     "- If several countries are involved, compare them and point out the differences.\n"
     "- If the sources do not contain the answer, say so clearly; do not invent rules.\n"
     "- Write the answer in the same language as the question (an English question gets an "
@@ -96,7 +97,7 @@ def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[b
 # Action: retrieval (each country gets its own top_k)
 # =====================================================================
 def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config: RAGConfig,
-              law: Optional[str] = None) -> List[Document]:
+              law: Optional[str] = None, original: Optional[str] = None) -> List[Document]:
     embedding_model = get_embedding_model(config)
 
     # Group the chosen DBs by country: in comparative questions every country
@@ -113,6 +114,7 @@ def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config
             law=law if config.filter_cases_by_law else None,
             reranker=get_reranker(config) if config.use_rerank else None,
             rerank_candidates=config.rerank_candidates,
+            extra_queries=[original] if config.search_original_question and original else [],
         )
     return docs
 
@@ -166,15 +168,19 @@ def single_agent_answer_question(
     docs: List[Document] = []
     action = "No retrieval: answer from general knowledge."
     if need_retrieval:
-        docs = _retrieve(search_query, db_names, db_map, config, law)
+        docs = _retrieve(search_query, db_names, db_map, config, law, question)
         action = f"Vector retrieval on: {', '.join(db_names)}\nSearch query: {search_query}"
+        if config.search_original_question:
+            action += "\n(+ the original question)"
+        if config.use_rerank:
+            action += f"\nReranked by: {config.reranker_model_name}"
         if config.filter_cases_by_law and law:
             action += f"\nPast cases filtered by law: {law}"
         # second ReAct step: nothing relevant in the chosen DBs -> widen the search
         if not docs and len(db_names) < len(db_map):
             db_names = list(db_map)
-            docs = _retrieve(search_query, db_names, db_map, config, law)
-            action += "\n-> nothing relevant, retried on all databases"
+            docs = _retrieve(search_query, db_names, db_map, config, law, question)
+            action +="\n-> nothing relevant, retried on all databases"
 
     # ---- Observation ----
     observation = _observation(db_names, docs) if need_retrieval else "No documents used."

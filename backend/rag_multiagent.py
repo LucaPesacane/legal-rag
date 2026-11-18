@@ -104,6 +104,7 @@ def multiagent_answer_question(
             law=law if config.filter_cases_by_law else None,
             reranker=get_reranker(config) if config.use_rerank else None,
             rerank_candidates=config.rerank_candidates,
+            extra_queries=[question] if config.search_original_question else [],
         )
         first_numbers[name] = len(all_docs) + 1
         agent_docs[name] = docs

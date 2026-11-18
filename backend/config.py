@@ -84,9 +84,13 @@ class RAGConfig:
     # extension (guide 8): in the past cases DBs keep only the cases of the legal
     # area of the question (inheritance or divorce), before vector similarity
     filter_cases_by_law: bool = False
+    # extension (guide 8, query rewriting): search with the English translation AND the
+    # original question (bge-m3 is multilingual): a bad translation no longer loses the document
+    search_original_question: bool = True
     # extension (guide 8): second ranking of the retrieved documents with a cross-encoder
-    use_rerank: bool = False
-    reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    # (right document first: 48% -> 84% of the dev questions; ~18 s more per search on CPU)
+    use_rerank: bool = True
+    reranker_model_name: str = "BAAI/bge-reranker-v2-m3"
     # only the first candidates by cosine are re-ranked (the cross-encoder is slow on CPU)
     rerank_candidates: int = 10
 

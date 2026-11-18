@@ -83,11 +83,14 @@ def search_vector_stores(
     law: str | None = None,
     reranker=None,
     rerank_candidates: int = 10,
+    extra_queries: List[str] = (),
 ) -> List[Document]:
     """Search several DBs, merge the results and keep the top_k by cosine similarity.
     Scores of different DBs are comparable (same model, normalized vectors).
-    If `law` is given, the past cases DBs return only cases of that legal area."""
-    q_vec = embedding_model.embed_query(question)  # embed the question only once
+    If `law` is given, the past cases DBs return only cases of that legal area.
+    `extra_queries` (e.g. the original question) are searched too, results merged."""
+    # embed each query only once
+    q_vecs = [embedding_model.embed_query(q) for q in [question, *extra_queries]]
 
     results: List[Document] = []
     for path in db_paths:
@@ -95,14 +98,15 @@ def search_vector_stores(
         # metadata filter first, then vector similarity (only cases DBs mix the two areas)
         filters = {"filter": {"law": law}, "fetch_k": 200} if law and path.endswith("_cases") else {}
         # retrieve more documents than needed, then filter and rerank
-        for doc, score in vs.similarity_search_with_score_by_vector(q_vec, k=k_fetch, **filters):
-            if score >= min_sim:
-                meta = {**doc.metadata, "score": round(float(score), 4), "db_name": os.path.basename(path)}
-                results.append(Document(page_content=doc.page_content, metadata=meta))
+        for q_vec in q_vecs:
+            for doc, score in vs.similarity_search_with_score_by_vector(q_vec, k=k_fetch, **filters):
+                if score >= min_sim:
+                    meta = {**doc.metadata, "score": round(float(score), 4), "db_name": os.path.basename(path)}
+                    results.append(Document(page_content=doc.page_content, metadata=meta))
 
     results.sort(key=lambda d: d.metadata["score"], reverse=True)
 
-    # keep only the best chunk of each document
+    # keep only the best chunk of each document (and the best query for it)
     kept, seen = [], set()
     for d in results:
         if d.metadata.get("id") not in seen:
