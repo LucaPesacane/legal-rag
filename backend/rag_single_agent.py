@@ -115,6 +115,7 @@ def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config
             reranker=get_reranker(config) if config.use_rerank else None,
             rerank_candidates=config.rerank_candidates,
             extra_queries=[original] if config.search_original_question and original else [],
+            add_case_details=config.add_case_details,
         )
     return docs
 

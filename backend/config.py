@@ -87,6 +87,9 @@ class RAGConfig:
     # extension (guide 8, query rewriting): search with the English translation AND the
     # original question (bge-m3 is multilingual): a bad translation no longer loses the document
     search_original_question: bool = True
+    # past cases: show their metadata (duration, cost, articles, ...) to reranker and LLM;
+    # the case texts have no punctuation ("375760 euros" for 3'757,60 euro)
+    add_case_details: bool = True
     # extension (guide 8): second ranking of the retrieved documents with a cross-encoder
     # (right document first: 48% -> 84% of the dev questions; ~18 s more per search on CPU)
     use_rerank: bool = True

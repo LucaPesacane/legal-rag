@@ -8,6 +8,8 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 import shutil
 
+from .document_loader import case_details
+
 # This is the vector database layer: which builds and loads FAISS vector stores using LangChain-Documents.
 
 # During offline step, called by the Vector DB Builder page to create FAISS DBs.
@@ -84,6 +86,7 @@ def search_vector_stores(
     reranker=None,
     rerank_candidates: int = 10,
     extra_queries: List[str] = (),
+    add_case_details: bool = False,
 ) -> List[Document]:
     """Search several DBs, merge the results and keep the top_k by cosine similarity.
     Scores of different DBs are comparable (same model, normalized vectors).
@@ -112,6 +115,15 @@ def search_vector_stores(
         if d.metadata.get("id") not in seen:
             seen.add(d.metadata.get("id"))
             kept.append(d)
+
+    # past cases: metadata (duration, cost, articles, ...) added right after the header,
+    # at reading time (indexes unchanged), so reranker and LLM see them
+    if add_case_details:
+        for d in kept:
+            details = case_details(d.metadata) if d.metadata.get("doc_type") == "case" else ""
+            if details:
+                header, _, text = d.page_content.partition("\n")
+                d.page_content = f"{header}\nCase details: {details}\n{text}"
 
     # optional second ranking (guide 8): the cross-encoder scores question and document together
     # (only the first candidates by cosine, to keep it fast)

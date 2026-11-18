@@ -189,6 +189,11 @@ with col_r2:
         value=config.search_original_question,
         help="The DBs are searched with the English translation and with the question as written.",
     )
+    config.add_case_details = st.checkbox(
+        "Show the metadata of past cases to reranker and LLM",
+        value=config.add_case_details,
+        help="Duration, cost, proceeding, articles cited... (from the JSON metadata, files not changed).",
+    )
     config.use_rerank = st.checkbox(
         "Use a cross-encoder reranker after retrieval (guide 8)",
         value=config.use_rerank,

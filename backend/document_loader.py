@@ -82,6 +82,27 @@ def _header(m: dict) -> str:
     return f"Country: {m['country']} | Law: {m['law']} | Past case: {m['case_id']}"
 
 
+# Metadata of a past case that are already shown elsewhere (header, ids, bookkeeping)
+_NOT_DETAILS = {"source", "country", "law", "kb", "doc_type", "case_id", "id", "chunk", "n_chunks", "score", "db_name"}
+# Values that only say "missing": showing them adds noise, not information
+_MISSING = {"", "no data", "unspecified", "not specified", "none", "n/a", "[]"}
+
+
+def case_details(m: dict) -> str:
+    """One line with the metadata of a past case (duration, cost, articles, ...).
+    The case text is lowercase without punctuation (e.g. "375760 euros" for
+    3'757,60 euro): the metadata keep the original values. Data files are not changed."""
+    parts = []
+    for k, v in m.items():
+        if k in _NOT_DETAILS or k == "rerank_score":
+            continue
+        v = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
+        if v.strip().lower() in _MISSING or (k == "duration" and not re.search(r"\d", v)):
+            continue  # e.g. duration "years" without a number
+        parts.append(f"{k.replace('_', ' ')}: {v}")
+    return " | ".join(parts)
+
+
 def load_documents_from_folders(folders: List[str]) -> List[Document]:
     all_docs: List[Document] = []
     seen = set()

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.document_loader import clean_text, load_documents_from_folders
+from backend.document_loader import case_details, clean_text, load_documents_from_folders
 
 # Checks on the real corpus. Run from the repo root: python -m pytest -q
 DATA = Path("data/Contest_Data")
@@ -47,3 +47,9 @@ def test_long_documents_are_split_with_header(docs):
 
 def test_clean_text():
     assert clean_text("580\u2028TITLE\xa0 here\n\n  body ") == "580\nTITLE here\nbody"
+
+
+def test_case_details_keeps_values_and_skips_missing():
+    m = {"doc_type": "case", "case_id": "426/2019", "cost": "3'757,60 euro", "duration": "years",
+         "disputed_issues": "No data", "articles_cited": ["Art. 536"], "proceeding": "extrajudicial"}
+    assert case_details(m) == "cost: 3'757,60 euro | articles cited: Art. 536 | proceeding: extrajudicial"
