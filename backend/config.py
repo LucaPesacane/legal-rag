@@ -39,6 +39,10 @@ class RAGConfig:
     temperature: float = 0.1
     # gpt-oss models also spend tokens on reasoning before the answer
     max_tokens: int = 2000
+    # gpt-oss reasoning effort ("" = Groq default, medium): "low" uses far fewer tokens
+    reasoning_effort: str = ""
+    # router: "low" keeps routing at 100% on the dev questions and answers faster
+    router_reasoning_effort: str = "low"
 
     # ---------------- Embeddings ----------------
     # "huggingface" -> HuggingFaceEmbeddings (any HF model or local path)

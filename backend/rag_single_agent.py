@@ -73,7 +73,8 @@ def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[b
     user_prompt = f"Databases:\n{kb_block}\n\nQuestion:\n{question}"
 
     # a smaller model is enough for this classification
-    router = LLMBackend(replace(config, llm_model_name=config.router_model_name, temperature=0.0))
+    router = LLMBackend(replace(config, llm_model_name=config.router_model_name, temperature=0.0,
+                                 reasoning_effort=config.router_reasoning_effort))
     resp = router.chat(system_prompt, user_prompt)
 
     try:

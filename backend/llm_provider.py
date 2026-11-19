@@ -54,6 +54,7 @@ class LLMBackend:
             api_key=api_key,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
+            reasoning_effort=self.config.reasoning_effort or None,  # only gpt-oss models
             max_retries=5,  # free tier limits: retry on HTTP 429
             timeout=60,
         )

@@ -47,7 +47,8 @@ def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> 
     user_prompt = f"Agents:\n{agents_block}\n\nQuestion:\n{question}"
 
     # same small routing model as Task A: the two systems differ only in the architecture
-    router = LLMBackend(replace(config, llm_model_name=config.router_model_name, temperature=0.0))
+    router = LLMBackend(replace(config, llm_model_name=config.router_model_name, temperature=0.0,
+                                 reasoning_effort=config.router_reasoning_effort))
     resp = router.chat(system_prompt, user_prompt)
     try:
         data = json.loads(re.search(r"\{.*\}", resp, re.S).group())
