@@ -8,12 +8,8 @@ from typing import Dict, List
 from .config import RAGConfig
 
 
-# Hand-written description of each knowledge base (written from the EDA).
-# The LLM reads them to decide which DBs to search (Task A) or which
-# specialized agents to call (Task B).
-# The same legal concept has different names in the three codes
+# [+] Same legal concept, different names in the three codes
 # (e.g. Italy "reserved share", Slovenia "statutory portion", Estonia "compulsory portion").
-# If a query contains one term of a group, the other terms are added (query expansion).
 LEGAL_SYNONYMS: List[List[str]] = [
     ["reserved share", "forced share", "legitime", "compulsory portion", "statutory portion", "forced heirs"],
     ["intestate succession", "statutory heirs", "legal heirs", "succession by law", "order of succession"],
@@ -23,16 +19,16 @@ LEGAL_SYNONYMS: List[List[str]] = [
 ]
 
 
+# [+] Query expansion: if the query has one term of a group, the other terms are added.
 def expand_query(query: str) -> str:
     q = query.lower()
     extra = [t for group in LEGAL_SYNONYMS if any(term in q for term in group) for t in group if t not in q]
     return f"{query} ({', '.join(extra)})" if extra else query
 
 
+# [+] Remove citations to sources that do not exist (e.g. [S26] with 10 sources: an article
+# number used as a label); returns the answer and the number of citations removed.
 def fix_citations(answer: str, n_sources: int) -> tuple[str, int]:
-    """Remove citations to sources that do not exist (e.g. [S26] when there are
-    10 sources: the model confused an article number with a source label).
-    Returns the cleaned answer and how many citations were removed."""
     answer = re.sub(r"\[\s*S\s*(\d+)\s*\]", r"[S\1]", answer)  # "[ S1 ]" -> "[S1]"
     invalid = [m for m in re.findall(r"\[S(\d+)\]", answer) if not 1 <= int(m) <= n_sources]
     for m in set(invalid):
@@ -40,6 +36,8 @@ def fix_citations(answer: str, n_sources: int) -> tuple[str, int]:
     return answer, len(invalid)
 
 
+# [+] Hand-written description of each DB (from the EDA): read by the router (Task A)
+# and by the supervisor to choose the agents (Task B).
 KB_DESCRIPTIONS: Dict[str, str] = {
     "italy_inheritance_code": "Italian Civil Code, Book II arts. 456-768 (succession): opening of succession, "
         "acceptance and renunciation, inventory, legitimate (intestate) heirs, reserved share of forced heirs, "

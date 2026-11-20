@@ -41,6 +41,7 @@ def load_chat_db() -> List[Dict[str, Any]]:
     return []
 
 
+# [~] Save the current chat with its first question as title.
 def append_chat_to_db(history: List[Dict[str, Any]]) -> None:
     if not history:
         return
@@ -53,8 +54,9 @@ def append_chat_to_db(history: List[Dict[str, Any]]) -> None:
 
 
 # ---------------------------------------------------------------------
-# Sources panel: country, code/case, articles, excerpt (transparency)
+# Sources panel
 # ---------------------------------------------------------------------
+# [+] Table of the sources: country, code or case, article/case number, excerpt.
 def show_sources(sources: List[dict], contexts: List[str]) -> None:
     rows = []
     for s, text in zip(sources, contexts):
@@ -82,7 +84,7 @@ config = get_config()
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "session_id" not in st.session_state:
+if "session_id" not in st.session_state:  # [+] id written in the log
     st.session_state.session_id = uuid.uuid4().hex[:8]
 
 col_top1, col_top2, col_top3 = st.columns([1, 1, 2])
@@ -95,9 +97,9 @@ with col_top2:
     if st.button("🗑 Clear current chat"):
         st.session_state.chat_history = []
 with col_top3:
-    st.caption(f"Every turn is logged in `{LOG_PATH}` · saved chats: {len(load_chat_db())}")
+    st.caption(f"Every turn is logged in `{LOG_PATH}` | saved chats: {len(load_chat_db())}")
 
-# Architecture used for the answers
+# [+] Architecture used for the answers (Task A or Task B)
 mode = st.radio(
     "Architecture",
     ["Task A – Single agent (ReAct)", "Task B – Multi-agent (supervisor)"],
@@ -108,7 +110,7 @@ config.use_multiagent = mode.startswith("Task B")
 show_trace = st.checkbox("Show reasoning trace", value=True)
 
 # ---------------------------------------------------------------------
-# Render existing history (sources and trace are kept for every answer)
+# [~] Render existing history (sources and trace kept for every answer)
 # ---------------------------------------------------------------------
 for msg in st.session_state.chat_history:
     with st.chat_message(msg["role"]):
@@ -146,9 +148,9 @@ if user_input:
         if show_trace and trace:
             with st.expander("🔍 Reasoning trace"):
                 st.markdown(trace)
-        st.caption(f"{'Task B' if config.use_multiagent else 'Task A'} · {latency:.1f}s")
+        st.caption(f"{'Task B' if config.use_multiagent else 'Task A'} | {latency:.1f}s")
 
-    # structured log of the turn (used by the RAGAS evaluation)
+    # [+] structured log of the turn (used by the RAGAS evaluation)
     log_turn(
         user_input, answer, docs, config,
         mode="multi" if config.use_multiagent else "single",

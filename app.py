@@ -3,7 +3,7 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 
-from backend.config import RAGConfig
+from backend.config import RAGConfig  # [+]
 from backend.embeddings import get_embedding_model
 from backend.vector_store import load_vector_store
 
@@ -18,14 +18,14 @@ st.set_page_config(
 
 st.title("🧠 Agentic RAG Playground (LangChain)")
 
+# [~] Groq and OpenAI keys
 for key_name, provider in [("GROQ_API_KEY", "Groq"), ("OPENAI_API_KEY", "OpenAI")]:
     if os.getenv(key_name):
         st.caption(f"🔑 {key_name} loaded from .env")
     else:
-        st.caption(f"⚠️ {key_name} not set (needed only to use {provider}).")
+        st.caption(f"{key_name} not set (needed only to use {provider}).")
 
-# Warm up: load the embedding model and the FAISS DBs once at startup,
-# so that the first question does not wait for them (they stay cached in memory)
+# [+] Warm up: embedding model and FAISS DBs loaded once at startup (then cached)
 config = RAGConfig()
 with st.spinner("Loading embedding model and vector databases..."):
     embedding_model = get_embedding_model(config)
@@ -36,7 +36,7 @@ with st.spinner("Loading embedding model and vector databases..."):
 if missing:
     st.warning(f"Missing vector DBs: {', '.join(missing)}. Build them with scripts/build_indexes.py.")
 else:
-    st.caption(f"✅ {len(config.vector_store_dirs)} vector DBs ready ({config.embedding_model_name})")
+    st.caption(f"{len(config.vector_store_dirs)} vector DBs ready ({config.embedding_model_name})")
 
 st.markdown(
     """

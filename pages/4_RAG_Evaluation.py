@@ -11,8 +11,8 @@ from backend.config import RAGConfig
 from backend.ragas_eval import build_ragas_dataset_from_answers, compare_systems, run_ragas
 
 CHAT_DB_PATH = Path("chat_sessions.json")
-# answers of Task A and Task B on the test set, written by eval/run_eval.py
-ANSWERS_PATH = Path("eval/results/answers_dev.jsonl")
+# [+] answers of Task A and Task B on the test set (final configuration), written by eval/run_eval.py
+ANSWERS_PATH = Path("eval/results/answers_dev_v4.jsonl")
 
 
 # ---------------------------------------------------------------------
@@ -152,7 +152,7 @@ with st.expander("ℹ️ What do these metrics mean?"):
         "All metrics are in [0, 1]. Higher is better. Use them to compare different RAG settings and pipelines."
     )
 
-# Data to evaluate: answers of Task A and Task B on the test set, or saved chats
+# [+] Data to evaluate: test set answers or saved chats
 data_source = st.radio(
     "Data to evaluate",
     [f"Test set answers ({ANSWERS_PATH.name})", f"Saved chats ({CHAT_DB_PATH.name})"],
@@ -288,7 +288,7 @@ dataset_eval = Dataset.from_pandas(df_eval, preserve_index=False)
 if st.button("Run RAGAS evaluation"):
     with st.spinner("Running RAGAS metrics..."):
         try:
-            df_scores = run_ragas(dataset_eval, config)
+            df_scores = run_ragas(dataset_eval, config)  # [~] metrics in backend/ragas_eval.py
         except Exception as e:
             st.error(f"Error during RAGAS evaluation: {e}")
             st.stop()
@@ -297,6 +297,7 @@ if st.button("Run RAGAS evaluation"):
     st.subheader("Per-row metric scores")
     st.dataframe(df_scores, width="stretch")
 
+    # [+] Task A vs Task B table for test set answers
     if df_scores["chat_id"].astype(str).str.contains("/").all():
         st.subheader("Task A vs Task B (mean scores)")
         st.dataframe(compare_systems(df_scores), width="stretch")
@@ -304,6 +305,7 @@ if st.button("Run RAGAS evaluation"):
         st.subheader("Aggregated (mean) scores")
         st.dataframe(df_scores.mean(numeric_only=True).round(3), width="stretch")
 
+    # [+] scores saved to CSV
     out = Path("eval/results/ragas_page.csv")
     df_scores.to_csv(out, index=False)
     st.caption(f"Scores saved in `{out}`")

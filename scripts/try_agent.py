@@ -9,8 +9,7 @@ from backend.config import RAGConfig
 from backend.rag_multiagent import multiagent_answer_question
 from backend.rag_single_agent import single_agent_answer_question
 
-# Runs the single agent (Task A) or the multi-agent system (Task B) on a few
-# questions and prints the reasoning trace, the answer and the sources.
+# [+] Runs Task A or Task B on a few questions: trace, answer and sources.
 # Usage:
 #   python scripts/try_agent.py ["question" ...]           # Task A
 #   python scripts/try_agent.py --multi ["question" ...]   # Task B

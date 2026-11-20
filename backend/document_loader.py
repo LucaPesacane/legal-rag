@@ -7,30 +7,27 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Role of this module:
-# This is the ingestion layer: it converts the raw JSON legal corpus
-# (Italy, Estonia, Slovenia - civil codes and past cases) into LangChain
-# Documents with clean text and uniform metadata.
+#This is the ingestion layer: it converts your raw JSON legal cases into
+# LangChain Documents that can then be embedded and stored.
 # Used mainly by vector_store.py and the Vector DB Builder page.
 
+# [+] Folder name -> country name used in the metadata
 COUNTRIES = {"italy": "Italy", "estonia": "Estonia", "slovenia": "Slovenia"}
 
-# Most articles and cases fit in one chunk: only documents longer than
-# 1500 characters are split (with overlap, so no concept is cut in half).
+# [+] Only documents longer than 1500 characters are split (overlap keeps concepts whole)
 splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200)
 
 
+# [+] Remove line separators, non-breaking spaces and empty lines.
 def clean_text(text: str) -> str:
-    # Remove special line separators and non-breaking spaces, drop empty lines
-    text = text.replace("\u2028", "\n").replace("\xa0", " ")
+    text = text.replace(" ", "\n").replace("\xa0", " ")
     lines = [" ".join(line.split()) for line in text.splitlines()]
     return "\n".join(line for line in lines if line)
 
 
+# [+] Article number read from the first lines of the text ("580", "10.", "768-TER", "ARTICLE 160").
 def article_number(text: str) -> Optional[str]:
-    # The article number is in the first lines of the text
-    # ("580", "10.", "768-TER", "ARTICLE 160").
-    # civil_codes_used is NOT reliable for this: sometimes it is an article
-    # cited inside the text (e.g. file Article_279.json contains article 580).
+    # civil_codes_used is not reliable: sometimes it is an article cited in the text
     for line in text.splitlines()[:3]:
         m = re.fullmatch(r"(?:art(?:icle)?\.?\s*)?(\d+[a-z]?(?:\.\d+)?(?:-[A-Z]+)?)\.?", line, re.I)
         if m:
@@ -38,9 +35,9 @@ def article_number(text: str) -> Optional[str]:
     return None
 
 
+# [+] Uniform metadata: country and knowledge base from the folder path, case or code fields.
 def _build_metadata(meta: dict, path: Path, text: str) -> dict:
-    # Country and knowledge base come from the folder path: metadata "type"
-    # means the country for codes but judicial/extrajudicial for cases.
+    # "type" means the country for codes but judicial/extrajudicial for cases
     country = COUNTRIES[path.parent.parent.name.lower()]
     folder = path.parent.name.lower()
     if "cases" in folder:
@@ -50,7 +47,7 @@ def _build_metadata(meta: dict, path: Path, text: str) -> dict:
     else:
         kb = "divorce_code"
 
-    # civil_codes_used can be a string, a list or missing -> always a list
+    # civil_codes_used can be a string, a list or missing
     cited = meta.get("civil_codes_used") or []
     cited = [cited] if isinstance(cited, str) else list(cited)
 
@@ -65,7 +62,6 @@ def _build_metadata(meta: dict, path: Path, text: str) -> dict:
         metadata["doc_type"] = "case"
         metadata["case_id"] = meta.get("CASE_ID") or path.stem
         metadata["proceeding"] = meta.get("type")
-        # keep the other case metadata (duration, cost, ...) as they are
         skip = ("law", "state", "type", "CASE_ID", "civil_codes_used")
         metadata.update({k: v for k, v in meta.items() if k not in skip})
     else:
@@ -74,24 +70,21 @@ def _build_metadata(meta: dict, path: Path, text: str) -> dict:
     return metadata
 
 
+# [+] Header added to every chunk: country, law and article or case number.
 def _header(m: dict) -> str:
-    # Short header added to every chunk: the embedding "knows" country and law,
-    # and the LLM sees which article or case it is reading.
     if m["doc_type"] == "code":
         return f"Country: {m['country']} | Law: {m['law']} | Civil code article {m['article']}"
     return f"Country: {m['country']} | Law: {m['law']} | Past case: {m['case_id']}"
 
 
-# Metadata of a past case that are already shown elsewhere (header, ids, bookkeeping)
+# [+] Metadata already shown elsewhere, and values that only mean "missing"
 _NOT_DETAILS = {"source", "country", "law", "kb", "doc_type", "case_id", "id", "chunk", "n_chunks", "score", "db_name"}
-# Values that only say "missing": showing them adds noise, not information
 _MISSING = {"", "no data", "unspecified", "not specified", "none", "n/a", "[]"}
 
 
+# [+] One line with the metadata of a past case (duration, cost, articles...).
+# The case texts have no punctuation ("375760 euros" for 3'757,60 euro): the metadata keep the real values.
 def case_details(m: dict) -> str:
-    """One line with the metadata of a past case (duration, cost, articles, ...).
-    The case text is lowercase without punctuation (e.g. "375760 euros" for
-    3'757,60 euro): the metadata keep the original values. Data files are not changed."""
     parts = []
     for k, v in m.items():
         if k in _NOT_DETAILS or k == "rerank_score":
@@ -103,6 +96,7 @@ def case_details(m: dict) -> str:
     return " | ".join(parts)
 
 
+# [~] Load every JSON file: clean text, uniform metadata, chunks with header.
 def load_documents_from_folders(folders: List[str]) -> List[Document]:
     all_docs: List[Document] = []
     seen = set()
@@ -129,7 +123,7 @@ def load_documents_from_folders(folders: List[str]) -> List[Document]:
                 print(f"[document_loader] Error loading {json_file}: {e}")
                 continue
 
-            # Stable id (same file -> same id), used by the evaluation (Hit@k)
+            # stable id (same file -> same id), used by the evaluation (Hit@k)
             metadata["id"] = f"{metadata['country']}/{metadata['kb']}/{json_file.stem}"
             chunks = splitter.split_text(text)
             for i, chunk in enumerate(chunks):

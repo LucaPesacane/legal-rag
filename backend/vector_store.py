@@ -8,7 +8,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 import shutil
 
-from .document_loader import case_details
+from .document_loader import case_details  # [+]
 
 # This is the vector database layer: which builds and loads FAISS vector stores using LangChain-Documents.
 
@@ -20,6 +20,7 @@ from .document_loader import case_details
 # Simple in-memory cache: {path -> FAISS vector store}
 _VECTOR_STORE_CACHE: dict[str, FAISS] = {}
 
+# [~] FAISS DB with inner product on normalized vectors (= cosine similarity).
 def build_vector_store(
     docs: List[Document],
     embedding_model,
@@ -27,7 +28,6 @@ def build_vector_store(
 ) -> None:
     os.makedirs(target_dir, exist_ok=True)
 
-    # Embeddings are normalized, so inner product = cosine similarity
     vs = FAISS.from_documents(
         docs, embedding_model, distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT
     )
@@ -36,6 +36,7 @@ def build_vector_store(
     _VECTOR_STORE_CACHE[target_dir] = vs
 
 
+# [~] Load a FAISS DB (cached), setting again the distance strategy.
 def load_vector_store(
     path: str,
     embedding_model,
@@ -44,7 +45,7 @@ def load_vector_store(
     if cached is not None:
         return cached
 
-    # the distance strategy is not saved on disk: it must be set again here
+    # the distance strategy is not saved on disk
     vs = FAISS.load_local(
         path,
         embedding_model,
@@ -55,13 +56,12 @@ def load_vector_store(
     return vs
 
 
+# [+] One FAISS DB per country x knowledge base (9 DBs), e.g. vector_store/italy_cases.
 def build_all_vector_stores(
     docs: List[Document],
     embedding_model,
     root: str,
 ) -> List[str]:
-    """One FAISS DB per country x knowledge base (9 DBs), e.g. vector_store/italy_cases.
-    Routing then means choosing which DBs to search."""
     groups: dict[str, List[Document]] = {}
     for d in docs:
         name = f"{d.metadata['country'].lower()}_{d.metadata['kb']}"
@@ -75,6 +75,8 @@ def build_all_vector_stores(
     return paths
 
 
+# [+] Search several DBs (one or more queries), keep the best chunk per document,
+# optionally add case metadata and rerank; returns the top_k documents.
 def search_vector_stores(
     question: str,
     db_paths: List[str],
@@ -88,19 +90,14 @@ def search_vector_stores(
     extra_queries: List[str] = (),
     add_case_details: bool = False,
 ) -> List[Document]:
-    """Search several DBs, merge the results and keep the top_k by cosine similarity.
-    Scores of different DBs are comparable (same model, normalized vectors).
-    If `law` is given, the past cases DBs return only cases of that legal area.
-    `extra_queries` (e.g. the original question) are searched too, results merged."""
     # embed each query only once
     q_vecs = [embedding_model.embed_query(q) for q in [question, *extra_queries]]
 
     results: List[Document] = []
     for path in db_paths:
         vs = load_vector_store(path, embedding_model)
-        # metadata filter first, then vector similarity (only cases DBs mix the two areas)
+        # metadata filter first, then vector similarity (only the cases DBs mix the two areas)
         filters = {"filter": {"law": law}, "fetch_k": 200} if law and path.endswith("_cases") else {}
-        # retrieve more documents than needed, then filter and rerank
         for q_vec in q_vecs:
             for doc, score in vs.similarity_search_with_score_by_vector(q_vec, k=k_fetch, **filters):
                 if score >= min_sim:
@@ -116,8 +113,7 @@ def search_vector_stores(
             seen.add(d.metadata.get("id"))
             kept.append(d)
 
-    # past cases: metadata (duration, cost, articles, ...) added right after the header,
-    # at reading time (indexes unchanged), so reranker and LLM see them
+    # case metadata right after the header, at reading time (indexes unchanged)
     if add_case_details:
         for d in kept:
             details = case_details(d.metadata) if d.metadata.get("doc_type") == "case" else ""
@@ -125,8 +121,7 @@ def search_vector_stores(
                 header, _, text = d.page_content.partition("\n")
                 d.page_content = f"{header}\nCase details: {details}\n{text}"
 
-    # optional second ranking (guide 8): the cross-encoder scores question and document together
-    # (only the first candidates by cosine, to keep it fast)
+    # optional second ranking: the cross-encoder reads question and document together
     if reranker and kept:
         kept = kept[:rerank_candidates]
         scores = reranker.predict([(question, d.page_content) for d in kept])

@@ -12,8 +12,7 @@ from backend.config import RAGConfig
 from backend.rag_single_agent import _decide, _retrieve
 from backend.rag_utils import _get_vector_db_dirs
 
-# Free comparison (no judge LLM) of a retrieval extension: same routing decision,
-# retrieval without and with the extension, hit@5 and MRR on the gold documents.
+# [+] Retrieval with and without a config flag (same routing): hit@1, hit@5, MRR, seconds.
 # Usage (from the repo root): python eval/compare_retrieval.py <config_flag> [dev|holdout] [field=value ...]
 #   e.g. python eval/compare_retrieval.py filter_cases_by_law
 #        python eval/compare_retrieval.py use_rerank dev reranker_model_name=BAAI/bge-reranker-v2-m3

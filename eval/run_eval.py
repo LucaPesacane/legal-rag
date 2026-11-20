@@ -12,11 +12,9 @@ from backend.config import RAGConfig
 from backend.rag_multiagent import multiagent_answer_question
 from backend.rag_single_agent import single_agent_answer_question
 
-# Runs Task A and Task B on the test set and saves one JSON line per answer
-# (same format as the chat log) in eval/results/answers_<split>.jsonl.
-# Then prints the metrics that need no LLM: routing, hit@5, MRR, citations, latency.
+# [+] Task A and Task B on the test set: answers in eval/results/answers_<split>[_tag].jsonl,
+# then the metrics without LLM (routing, hit@5, MRR, citations, latency).
 # Usage (from the repo root): python eval/run_eval.py [dev|holdout] [version tag]
-#   the tag keeps the results of different versions apart, e.g. answers_dev_v2.jsonl
 
 load_dotenv(".env")
 split = sys.argv[1] if len(sys.argv) > 1 else "dev"

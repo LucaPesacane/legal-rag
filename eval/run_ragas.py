@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.config import RAGConfig
 from backend.ragas_eval import METRICS, build_ragas_dataset_from_answers, compare_systems, run_ragas
 
-# RAGAS evaluation of a test set run without the Streamlit interface.
+# [+] RAGAS evaluation of a test set run, without the Streamlit interface.
 # Usage (from the repo root):
 #   python eval/run_ragas.py dev                           # all answers, key GROQ_API_KEY
 #   python eval/run_ragas.py dev 1/2 GROQ_API_KEY          # first half with one key ...

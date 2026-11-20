@@ -64,13 +64,13 @@ st.subheader("Configured JSON folders")
 for f in config.json_folders:
     st.code(f)
 
-# ---------------- THE 9 DBs USED BY TASK A AND TASK B ----------------
+# ---------------- [+] THE 9 DBs USED BY TASK A AND TASK B ----------------
 st.subheader("Build the 9 knowledge-base DBs (country x knowledge base)")
 st.write(
     "Task A and Task B route the questions to one FAISS DB per country "
     "(Italy, Estonia, Slovenia) and knowledge base (inheritance code, divorce code, past cases)."
 )
-if st.button("🏗️ Build the 9 DBs from the JSON folders"):
+if st.button("Build the 9 DBs from the JSON folders"):
     with st.spinner("Loading documents and computing embeddings (some minutes with bge-m3)..."):
         docs = load_documents_from_folders(config.json_folders)
         if not docs:
@@ -92,6 +92,7 @@ else:
     st.info("No vector stores registered yet. You can create one below.")
 
 # ---------------- SELECT FOLDERS FOR THIS DB ----------------
+# [~] single custom DB kept as an advanced option
 st.subheader("Advanced: build a single custom vector store")
 st.caption("Not used by Task A / Task B: they need the 9 DBs built above.")
 

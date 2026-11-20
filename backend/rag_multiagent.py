@@ -16,19 +16,21 @@ from .rag_single_agent import ANSWER_PROMPT, NO_SOURCES_PROMPT
 from .rag_utils import KB_DESCRIPTIONS, _get_vector_db_dirs, expand_query, fix_citations
 from .vector_store import search_vector_stores
 
-# Role of this module:
+# [+] Role of this module:
 # Task B - multi-agent system with a supervisor.
-#   - 9 specialized agents, one per DB (country x knowledge base), each described
-#     by its KB_DESCRIPTIONS entry and able to retrieve + answer on its own DB only;
-#   - the supervisor reads the descriptions, chooses the agents for the question,
-#     runs them in parallel and merges their partial answers into one answer.
+#   - 9 specialized agents, one per DB (country x knowledge base), each retrieves
+#     and answers on its own DB only;
+#   - the supervisor chooses the agents from their descriptions, runs them in
+#     parallel and merges their partial answers into one answer.
 
+# [+] Reply of an agent whose sources are not relevant
 NO_INFO = "NO RELEVANT INFORMATION"
 
 
 # =====================================================================
 # Supervisor step 1: which specialized agents?
 # =====================================================================
+# [+] Supervisor routing: one JSON call -> agents to activate, English search query, legal area.
 def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[List[str], str, Optional[str], str]:
     agents_block = "\n".join(f"- {name}: {KB_DESCRIPTIONS.get(name, name)}" for name in db_map)
 
@@ -46,7 +48,7 @@ def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> 
     )
     user_prompt = f"Agents:\n{agents_block}\n\nQuestion:\n{question}"
 
-    # same small routing model as Task A: the two systems differ only in the architecture
+    # same routing model as Task A: the two systems differ only in the architecture
     router = LLMBackend(replace(config, llm_model_name=config.router_model_name, temperature=0.0,
                                  reasoning_effort=config.router_reasoning_effort))
     resp = router.chat(system_prompt, user_prompt)
@@ -62,10 +64,11 @@ def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> 
 # =====================================================================
 # Specialized agent: retrieval + partial answer on its own DB
 # =====================================================================
+# [+] Specialized agent: partial answer on its own sources, only about its country.
 def _run_agent(name: str, docs: List[Document], first_number: int, question: str, config: RAGConfig) -> str:
     if not docs:
         return NO_INFO
-    # sources keep their global number, so the supervisor can merge citations as they are
+    # global source numbers: the supervisor merges the citations as they are
     sources = "\n\n".join(f"[S{first_number + i}] {d.page_content}" for i, d in enumerate(docs))
     system_prompt = (
         f"You are the specialized agent for: {KB_DESCRIPTIONS.get(name, name)}\n"
@@ -82,6 +85,7 @@ def _run_agent(name: str, docs: List[Document], first_number: int, question: str
 # =====================================================================
 # MULTI-AGENT PIPELINE
 # =====================================================================
+# [~] Task B pipeline: routing -> agents retrieve and answer in parallel -> merge.
 def multiagent_answer_question(
     question: str,
     config: RAGConfig,
@@ -116,14 +120,14 @@ def multiagent_answer_question(
         agent_docs[name] = docs
         all_docs += docs
 
-    # ---- Agents: partial answers, in parallel (max 3 to respect the API rate limit) ----
+    # ---- Agents: partial answers, in parallel (max 3: API rate limit) ----
     with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {
             name: pool.submit(_run_agent, name, agent_docs[name], first_numbers[name], question, config)
             for name in agents
         }
         partial = {name: f.result() for name, f in futures.items()}
-    # an answer is discarded only if it is just NO_INFO (a useful answer may mention it)
+    # discarded only if it is just NO_INFO
     useful = {name: a for name, a in partial.items() if not a.strip().startswith(NO_INFO)}
 
     # ---- Supervisor: merge ----

@@ -10,17 +10,15 @@ from langchain_core.documents import Document
 
 from .config import RAGConfig
 
-# Role of this module:
-# Structured logging of every conversation turn (one JSON object per line).
-# The log is used by the RAGAS evaluation (question, answer, contexts) and to
-# study how the system uses the multinational dataset (countries, types, sources).
-# Used by the chat page and, later, by the API endpoint.
+# [+] Role of this module:
+# Logging of every conversation turn (one JSON object per line), used by the
+# RAGAS evaluation and to study which countries and document types are used.
 
 LOG_PATH = Path("logs/chat_log.jsonl")
 
 
+# [+] Key metadata of each retrieved document, in the order of the citations [S1], [S2]...
 def source_info(docs: List[Document]) -> List[dict]:
-    """Key metadata of each retrieved document, in the order of the citations [S1], [S2], ..."""
     return [
         {
             "label": f"S{i}",
@@ -42,6 +40,7 @@ def source_info(docs: List[Document]) -> List[dict]:
     ]
 
 
+# [+] Append one turn (question, answer, sources, contexts, trace, latency) to the JSONL log.
 def log_turn(
     question: str,
     answer: str,

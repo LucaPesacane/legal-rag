@@ -8,10 +8,8 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.document_loader import article_number, clean_text, load_documents_from_folders
 
-# Exploratory analysis of the corpus: counts, lengths, case metadata coverage
-# and the article-number check. Run from the repo root:
-#   python eda/eda_dataset.py
-# Output (tables + charts for report and slides) in eda/output/
+# [+] Corpus analysis: counts, lengths, case metadata coverage, article-number check.
+# Run from the repo root: python eda/eda_dataset.py (output in eda/output/)
 
 DATA = Path("data/Contest_Data")
 OUT = Path("eda/output")

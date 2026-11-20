@@ -8,11 +8,8 @@ from backend.config import RAGConfig
 from backend.embeddings import get_embedding_model
 from backend.vector_store import search_vector_stores
 
-# Quick retrieval check with hand-written questions (no LLM involved).
-# For each question we know the right country, knowledge base and, when
-# possible, the exact document (gold). We compare:
-#   - routed:   search only the right DBs (what the agents will do)
-#   - unrouted: search all 9 DBs
+# [+] Retrieval check without LLM on hand-written questions with known DBs and gold documents:
+# routed (only the right DBs) vs unrouted (all 9 DBs).
 # Usage: python eval/sanity_retrieval.py [db_root]   (default: vector_store)
 
 QUESTIONS = [

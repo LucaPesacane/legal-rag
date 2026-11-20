@@ -10,6 +10,7 @@ from typing import List
 # The Streamlit config page writes into RAGConfig, and the backend behaves accordingly
 
 
+# [~] Groq models, 9 DBs, retrieval and extension options added.
 @dataclass
 class RAGConfig:
     """
@@ -26,33 +27,32 @@ class RAGConfig:
     """
 
     # ---------------- LLM ----------------
-    # "groq"         -> ChatOpenAI on Groq's OpenAI-compatible API (needs GROQ_API_KEY)
+    # [+] "groq"     -> ChatOpenAI on Groq's OpenAI-compatible API (needs GROQ_API_KEY)
     # "openai"       -> ChatOpenAI (needs OPENAI_API_KEY)
     # "huggingface"  -> HuggingFaceEndpoint / ChatHuggingFace (needs HF token for private models)
-    llm_provider: str = "groq"
-    llm_model_name: str = "openai/gpt-oss-120b"
-    # smaller and faster model for the routing decision (Thought step)
+    llm_provider: str = "groq"  # [~]
+    llm_model_name: str = "openai/gpt-oss-120b"  # [~]
+    # [+] smaller model for the routing decision (Thought step)
     router_model_name: str = "openai/gpt-oss-20b"
-    # RAGAS judge: a different model family from the generator (less self-preference bias)
+    # [+] RAGAS judge of another model family (less self-preference bias)
     judge_model_name: str = "qwen/qwen3.8-27b"
-    # low temperature: answers faithful to the sources and reproducible
+    # [+] low temperature: answers faithful to the sources
     temperature: float = 0.1
-    # gpt-oss models also spend tokens on reasoning before the answer
+    # [+] gpt-oss also spends tokens on reasoning before the answer
     max_tokens: int = 2000
-    # gpt-oss reasoning effort ("" = Groq default, medium): "low" uses far fewer tokens
+    # [+] reasoning effort of gpt-oss ("" = Groq default); "low" for the router keeps routing at 100%
     reasoning_effort: str = ""
-    # router: "low" keeps routing at 100% on the dev questions and answers faster
     router_reasoning_effort: str = "low"
 
     # ---------------- Embeddings ----------------
     # "huggingface" -> HuggingFaceEmbeddings (any HF model or local path)
     # "openai"      -> OpenAIEmbeddings
     embedding_provider: str = "huggingface"
-    embedding_model_name: str = "BAAI/bge-m3"
+    embedding_model_name: str = "BAAI/bge-m3"  # [~] multilingual
 
     # ---------------- Data (JSON corpus) ----------------
     # List of folders where JSON corpus lives
-    json_folders: List[str] = field(default_factory=lambda: ["data/Contest_Data"])
+    json_folders: List[str] = field(default_factory=lambda: ["data/Contest_Data"])  # [~]
 
     # ---------------- Vector stores (paths) ----------------
     # Root/base folder under which all FAISS vector DBs will be created.
@@ -70,7 +70,7 @@ class RAGConfig:
     vector_store_dir: str = "vector_store"
 
     # Optional: multiple DBs (multi-DB mode)
-    # Default: the 9 DBs country x knowledge base built by scripts/build_indexes.py
+    # [~] default: the 9 DBs country x knowledge base
     vector_store_dirs: List[str] = field(default_factory=lambda: [
         f"vector_store/{country}_{kb}"
         for country in ("italy", "estonia", "slovenia")
@@ -78,27 +78,22 @@ class RAGConfig:
     ])
 
     # ---------------- Retrieval ----------------
-    # documents kept per country (Task A) / per agent (Task B): the right document is
-    # in the first 3 in 96% of the dev questions, more documents add only noise
+    # [~] documents kept per country (Task A) / per agent (Task B)
     top_k: int = 3
-    # documents retrieved from each DB before filtering and reranking
+    # [+] documents retrieved from each DB before filtering and reranking
     k_fetch: int = 20
-    # minimum cosine similarity to keep a document
+    # [+] minimum cosine similarity to keep a document
     min_sim: float = 0.3
-    # extension (guide 8): in the past cases DBs keep only the cases of the legal
-    # area of the question (inheritance or divorce), before vector similarity
+    # [+] guide 8: past cases DBs return only cases of the legal area of the question
     filter_cases_by_law: bool = False
-    # extension (guide 8, query rewriting): search with the English translation AND the
-    # original question (bge-m3 is multilingual): a bad translation no longer loses the document
+    # [+] guide 8: search with the English translation and with the original question
     search_original_question: bool = True
-    # past cases: show their metadata (duration, cost, articles, ...) to reranker and LLM;
-    # the case texts have no punctuation ("375760 euros" for 3'757,60 euro)
+    # [+] past cases: show their metadata (duration, cost, articles...) to reranker and LLM
     add_case_details: bool = True
-    # extension (guide 8): second ranking of the retrieved documents with a cross-encoder
-    # (right document first: 48% -> 84% of the dev questions; ~18 s more per search on CPU)
+    # [~] guide 8: second ranking of the retrieved documents with a cross-encoder
     use_rerank: bool = True
     reranker_model_name: str = "BAAI/bge-reranker-v2-m3"
-    # only the first candidates by cosine are re-ranked (the cross-encoder is slow on CPU)
+    # [+] only the first candidates by cosine are reranked (slow on CPU)
     rerank_candidates: int = 10
 
     # ---------------- Agentic behavior ----------------
@@ -106,7 +101,7 @@ class RAGConfig:
     #   - "standard_rag"  -> classic RAG (vector retrieval + answer)
     #   - "react"         -> ReAct-style agentic RAG (Thought / Action / Observation)
     #   - "hybrid_legal"  -> hybrid legal RAG (metadata extraction + metadata-aware vector search)
-    agentic_mode: str = "react"
+    agentic_mode: str = "react"  # [~]
 
     # Multi-agent supervisor switch (used only in rag_pipeline for multi-DB agent routing)
     use_multiagent: bool = False

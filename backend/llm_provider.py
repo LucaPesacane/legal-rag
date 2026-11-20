@@ -16,6 +16,7 @@ from .config import RAGConfig
 # Abstracts away LLM details so all other modules call the same simple interface, regardless of provider or model.
 
 
+# [~] Groq added as provider.
 class LLMBackend:
     """
     Unified interface for LLM providers:
@@ -32,6 +33,7 @@ class LLMBackend:
         HUGGINGFACEHUB_API_TOKEN (or HF_TOKEN) in your .env.
     """
 
+    # [~] max_tokens and temperature read from the config.
     def __init__(self, config: RAGConfig):
         self.config = config
         self.max_new_tokens = getattr(config, "max_tokens", 512)
@@ -42,8 +44,8 @@ class LLMBackend:
     # ------------------------------------------------------------------
     GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
+    # [+] Groq chat model: same API as OpenAI, only base_url and api_key change.
     def _build_groq_chat(self) -> Optional[BaseChatModel]:
-        # Groq has the same API as OpenAI: only base_url and api_key change
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             print("[LLMBackend] GROQ_API_KEY not set.")
@@ -55,7 +57,7 @@ class LLMBackend:
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             reasoning_effort=self.config.reasoning_effort or None,  # only gpt-oss models
-            max_retries=5,  # free tier limits: retry on HTTP 429
+            max_retries=5,  # retry on HTTP 429 (free tier limits)
             timeout=60,
         )
 
@@ -108,6 +110,7 @@ class LLMBackend:
     # ------------------------------------------------------------------
     # Factory
     # ------------------------------------------------------------------
+    # [~] Groq branch added.
     def get_langchain_llm(self) -> Optional[BaseChatModel]:
         provider = self.config.llm_provider
 
@@ -125,6 +128,7 @@ class LLMBackend:
     # ------------------------------------------------------------------
     # High-level chat method used by rag_pipeline
     # ------------------------------------------------------------------
+    # [~] Groq hint added to the configuration error message.
     def chat(self, system_prompt: str, user_prompt: str) -> str:
         llm = self.get_langchain_llm()
         if llm is None:

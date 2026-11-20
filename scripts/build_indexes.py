@@ -8,7 +8,7 @@ from backend.document_loader import load_documents_from_folders
 from backend.embeddings import get_embedding_model
 from backend.vector_store import build_all_vector_stores
 
-# Builds the 9 FAISS DBs (country x knowledge base) from data/Contest_Data.
+# [+] Builds the 9 FAISS DBs (country x knowledge base) from data/Contest_Data.
 # Usage (from the repo root):
 #   python scripts/build_indexes.py                       # model from config
 #   python scripts/build_indexes.py BAAI/bge-m3 vector_store_bge

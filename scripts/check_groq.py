@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.config import RAGConfig
 from backend.llm_provider import LLMBackend
 
-# Checks that the Groq models answer through LLMBackend.
+# [+] Checks that the Groq models answer through LLMBackend.
 # Usage (from the repo root): python scripts/check_groq.py [model ...]
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")

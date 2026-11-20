@@ -15,14 +15,14 @@ from .llm_provider import LLMBackend
 from .rag_utils import KB_DESCRIPTIONS, _get_vector_db_dirs, expand_query, fix_citations
 from .vector_store import search_vector_stores
 
-# Role of this module:
+# [+] Role of this module:
 # Task A - single agent with ReAct-style logic:
 #   Thought     -> does the question need documents? which DBs? (one JSON answer)
 #   Action      -> vector retrieval on the chosen DBs (+ fallback on all DBs)
 #   Observation -> short summary of what was retrieved (computed, no LLM)
 #   Answer      -> final LLM call with the numbered sources
 
-# Answer rules, shared with the multi-agent system (Task B) for a fair comparison
+# [+] Answer rules, shared with Task B
 ANSWER_PROMPT = (
     "You are a legal assistant on Italian, Estonian and Slovenian civil law "
     "(inheritance and divorce). Answer ONLY with information from the numbered sources.\n"
@@ -39,6 +39,7 @@ ANSWER_PROMPT = (
     "- Write the answer in the same language as the question (an English question gets an "
     "English answer, even if it is about Italy), clearly and concisely."
 )
+# [+] Answer without documents (generic or out-of-domain questions)
 NO_SOURCES_PROMPT = (
     "You are a legal assistant specialized in inheritance and divorce law of Italy, Estonia "
     "and Slovenia. No document from the database was used for this answer.\n"
@@ -51,6 +52,7 @@ NO_SOURCES_PROMPT = (
 # =====================================================================
 # Thought: retrieval decision + choice of the knowledge bases
 # =====================================================================
+# [+] Thought: one JSON call -> retrieval needed?, which DBs, English search query, legal area.
 def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[bool, List[str], str, Optional[str], str]:
     kb_block = "\n".join(f"- {name}: {KB_DESCRIPTIONS.get(name, name)}" for name in db_map)
 
@@ -72,7 +74,7 @@ def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[b
     )
     user_prompt = f"Databases:\n{kb_block}\n\nQuestion:\n{question}"
 
-    # a smaller model is enough for this classification
+    # smaller model, low reasoning: enough for this classification
     router = LLMBackend(replace(config, llm_model_name=config.router_model_name, temperature=0.0,
                                  reasoning_effort=config.router_reasoning_effort))
     resp = router.chat(system_prompt, user_prompt)
@@ -82,11 +84,11 @@ def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[b
         need = bool(data.get("needs_retrieval", True))
         dbs = [d for d in data.get("databases", []) if d in db_map]
         reason = str(data.get("reason", ""))
-        # query in English (language of the documents) + synonyms used by the three codes
+        # query in English (language of the documents) + synonyms of the three codes
         search_query = expand_query(str(data.get("search_query") or question))
         law = data.get("law") if data.get("law") in ("Inheritance", "Divorce") else None
     except Exception:
-        # invalid JSON: safest choice for a legal assistant is to search everything
+        # invalid JSON: search everything
         return True, list(db_map), expand_query(question), None, f"Router output not valid JSON ({resp[:80]!r}) -> all databases."
 
     if need and not dbs:
@@ -97,12 +99,12 @@ def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[b
 # =====================================================================
 # Action: retrieval (each country gets its own top_k)
 # =====================================================================
+# [+] Action: vector search on the chosen DBs, top_k per country.
 def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config: RAGConfig,
               law: Optional[str] = None, original: Optional[str] = None) -> List[Document]:
     embedding_model = get_embedding_model(config)
 
-    # Group the chosen DBs by country: in comparative questions every country
-    # keeps its own top_k, so Italy (the largest corpus) cannot crowd out the others.
+    # each country keeps its own top_k: Italy (largest corpus) cannot crowd out the others
     by_country: Dict[str, List[str]] = {}
     for name in db_names:
         by_country.setdefault(name.split("_")[0], []).append(db_map[name])
@@ -124,6 +126,7 @@ def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config
 # =====================================================================
 # Observation: what did the retrieval find? (no LLM call needed)
 # =====================================================================
+# [+] Observation: summary of what was retrieved (computed, no LLM).
 def _observation(db_names: List[str], docs: List[Document]) -> str:
     if not docs:
         return f"Searched {', '.join(db_names)}: no document above the similarity threshold."
@@ -146,15 +149,15 @@ def _observation(db_names: List[str], docs: List[Document]) -> str:
     return "\n".join(lines)
 
 
+# [~] Numbered sources [S1], [S2]... ("S" avoids confusion with article numbers).
 def _build_context(docs: List[Document]) -> str:
-    # numbered sources: the answer cites them as [S1], [S2], ...
-    # ("S" avoids confusion with article numbers such as [13])
     return "\n\n".join(f"[S{i}] {d.page_content}" for i, d in enumerate(docs, start=1))
 
 
 # =====================================================================
 # SINGLE-AGENT PIPELINE
 # =====================================================================
+# [~] Task A pipeline: Thought -> Action (+ fallback on all DBs) -> Observation -> Answer.
 def single_agent_answer_question(
     question: str,
     config: RAGConfig,
@@ -178,7 +181,7 @@ def single_agent_answer_question(
             action += f"\nReranked by: {config.reranker_model_name}"
         if config.filter_cases_by_law and law:
             action += f"\nPast cases filtered by law: {law}"
-        # second ReAct step: nothing relevant in the chosen DBs -> widen the search
+        # nothing relevant in the chosen DBs -> search all DBs
         if not docs and len(db_names) < len(db_map):
             db_names = list(db_map)
             docs = _retrieve(search_query, db_names, db_map, config, law, question)
@@ -196,7 +199,7 @@ def single_agent_answer_question(
         user_prompt = question
 
     answer = llm_backend.chat(system_prompt, user_prompt)
-    answer = answer.replace("【", "[").replace("】", "]").replace("\u200b", "")  # gpt-oss sometimes writes odd brackets or invisible spaces
+    answer = answer.replace("【", "[").replace("】", "]").replace("\u200b", "")  # odd brackets / invisible spaces of gpt-oss
     answer, n_invalid = fix_citations(answer, len(docs))
 
     reasoning_trace: Optional[str] = None

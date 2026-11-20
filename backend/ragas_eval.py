@@ -21,18 +21,17 @@ from .config import RAGConfig
 from .embeddings import get_embedding_model
 from .llm_provider import LLMBackend
 
-# Role of this module:
-# RAGAS evaluation of the conversation logs (guide §6): context precision,
-# context recall, faithfulness, answer relevancy, answer correctness.
-# Used by the RAG Evaluation page and by eval/run_ragas.py.
+# [+] Role of this module:
+# RAGAS evaluation (guide 6): context precision, context recall, faithfulness,
+# answer relevancy, answer correctness. Used by the RAG Evaluation page and eval/run_ragas.py.
 
 TESTSET_PATH = Path("eval/testset.json")
 METRICS = {m.name: m for m in [context_precision, context_recall, faithfulness, answer_relevancy, answer_correctness]}
 
 
+# [+] RAGAS rows from a test set run (eval/run_eval.py):
+# ground truth = reference answer, chat_id = "<question id>/<single|multi>".
 def build_ragas_dataset_from_answers(answers_path: Path) -> Dataset:
-    """Rows from a test set run (eval/run_eval.py): the ground truth is the reference
-    answer of the test set and `chat_id` is "<question id>/<single|multi>"."""
     references = {q["question"]: q["reference"] for q in json.load(open(TESTSET_PATH, encoding="utf-8"))}
     rows = []
     with open(answers_path, encoding="utf-8") as f:
@@ -48,15 +47,10 @@ def build_ragas_dataset_from_answers(answers_path: Path) -> Dataset:
     return Dataset.from_list(rows)
 
 
+# [+] Judge LLM (Groq, otherwise OpenAI gpt-4o-mini) + the embedding model of the RAG system.
 def get_ragas_models(config: RAGConfig):
-    """
-    LangChain LLM + embeddings for Ragas:
-    - Groq judge (config.judge_model_name, a different family from the generator)
-      if GROQ_API_KEY is set, otherwise OpenAI gpt-4o-mini;
-    - the same embedding model used by the RAG system.
-    """
     if os.getenv("GROQ_API_KEY"):
-        # qwen3 reasons before answering: a larger max_tokens avoids truncated judgements
+        # large max_tokens: long judgements are not truncated
         judge_config = RAGConfig(llm_provider="groq", llm_model_name=config.judge_model_name,
                                  temperature=0.0, max_tokens=8000)
         return LLMBackend(judge_config).get_langchain_llm(), get_embedding_model(config)
@@ -66,8 +60,8 @@ def get_ragas_models(config: RAGConfig):
     return ChatOpenAI(model="gpt-4o-mini", temperature=0.0), OpenAIEmbeddings(model="text-embedding-3-small")
 
 
+# [+] Compute the metrics (all 5 by default): one row per answer.
 def run_ragas(dataset: Dataset, config: RAGConfig, metric_names: list[str] | None = None) -> pd.DataFrame:
-    """Compute the metrics (all 5 by default); returns one row per answer (chat_id kept)."""
     eval_llm, eval_embeddings = get_ragas_models(config)
 
     # Groq returns one completion per call: answer_relevancy must ask for 1, not 3
@@ -79,7 +73,7 @@ def run_ragas(dataset: Dataset, config: RAGConfig, metric_names: list[str] | Non
         llm=eval_llm,
         embeddings=eval_embeddings,
         show_progress=True,
-        # few parallel calls: the free tier allows 8000 tokens per minute
+        # few parallel calls: free tier, 8000 tokens per minute
         run_config=RunConfig(max_workers=2, timeout=300),
     )
     df_scores = result.to_pandas()
@@ -87,8 +81,8 @@ def run_ragas(dataset: Dataset, config: RAGConfig, metric_names: list[str] | Non
     return df_scores
 
 
+# [+] Task A vs Task B table (guide 7.2): mean of each metric.
 def compare_systems(df_scores: pd.DataFrame) -> pd.DataFrame:
-    """Performance table Task A vs Task B (guide §7.2): mean of each metric."""
     metrics = ["context_precision", "context_recall", "faithfulness", "answer_relevancy", "answer_correctness"]
     system = df_scores["chat_id"].str.split("/").str[1].map(
         {"single": "Task A - single agent", "multi": "Task B - multi-agent"})

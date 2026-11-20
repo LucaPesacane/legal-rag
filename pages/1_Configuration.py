@@ -23,6 +23,7 @@ st.subheader("LLM Settings")
 col1, col2 = st.columns(2)
 
 with col1:
+    # [~] groq provider added
     config.llm_provider = st.selectbox(
         "LLM Provider",
         options=["groq", "openai", "huggingface"],
@@ -48,6 +49,7 @@ with col2:
         ),
     )
 
+# [+] Router model and temperature of the answers
 col_l1, col_l2 = st.columns(2)
 
 with col_l1:
@@ -167,6 +169,7 @@ with col_r1:
         help="Number of documents kept after similarity-based filtering.",
     )
 
+    # [+] candidates per DB and similarity threshold
     config.k_fetch = st.slider(
         "Candidates retrieved from each DB (before filtering)",
         min_value=5,
@@ -184,6 +187,7 @@ with col_r1:
     )
 
 with col_r2:
+    # [+] search with the original question, metadata of past cases
     config.search_original_question = st.checkbox(
         "Search also with the original question (guide 8)",
         value=config.search_original_question,
@@ -194,6 +198,7 @@ with col_r2:
         value=config.add_case_details,
         help="Duration, cost, proceeding, articles cited... (from the JSON metadata, files not changed).",
     )
+    # [~] the reranker is now implemented (cross-encoder)
     config.use_rerank = st.checkbox(
         "Use a cross-encoder reranker after retrieval (guide 8)",
         value=config.use_rerank,
@@ -223,6 +228,7 @@ config.agentic_mode = st.radio(
 
 
 # ---------------- MULTI-AGENT SUPERVISOR ----------------
+# [+] Extension: filter past cases by legal area
 st.subheader("Extensions (exam guide 8)")
 
 config.filter_cases_by_law = st.checkbox(
