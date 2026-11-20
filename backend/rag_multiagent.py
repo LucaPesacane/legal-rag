@@ -70,9 +70,13 @@ def _run_agent(name: str, docs: List[Document], first_number: int, question: str
     system_prompt = (
         f"You are the specialized agent for: {KB_DESCRIPTIONS.get(name, name)}\n"
         + ANSWER_PROMPT
+        + "\n- Write ONLY about your country: the other countries of the question are "
+        "answered by other agents, so never write about them (not even that information is missing)."
         + f"\n- If your sources are not relevant to the question, reply only: {NO_INFO}"
     )
-    return LLMBackend(config).chat(system_prompt, f"Sources:\n{sources}\n\nQuestion:\n{question}")
+    country = name.split("_")[0].title()
+    return LLMBackend(config).chat(
+        system_prompt, f"Sources:\n{sources}\n\nQuestion:\n{question}\n\n(Answer only for {country}.)")
 
 
 # =====================================================================
@@ -119,7 +123,8 @@ def multiagent_answer_question(
             for name in agents
         }
         partial = {name: f.result() for name, f in futures.items()}
-    useful = {name: a for name, a in partial.items() if NO_INFO not in a}
+    # an answer is discarded only if it is just NO_INFO (a useful answer may mention it)
+    useful = {name: a for name, a in partial.items() if not a.strip().startswith(NO_INFO)}
 
     # ---- Supervisor: merge ----
     if not useful:
@@ -133,6 +138,7 @@ def multiagent_answer_question(
             "into ONE coherent answer for the user.\n"
             "- Keep every source citation exactly as written ([S1], [S2], ...): never renumber them.\n"
             "- When several countries are involved, compare them and highlight divergences.\n"
+            "- If a partial answer says a country is not covered but another one covers it, use the latter.\n"
             "- Do not add facts that are not in the partial answers; do not mention the agents.\n"
             "- Answer in the language of the question."
         )

@@ -33,6 +33,7 @@ def fix_citations(answer: str, n_sources: int) -> tuple[str, int]:
     """Remove citations to sources that do not exist (e.g. [S26] when there are
     10 sources: the model confused an article number with a source label).
     Returns the cleaned answer and how many citations were removed."""
+    answer = re.sub(r"\[\s*S\s*(\d+)\s*\]", r"[S\1]", answer)  # "[ S1 ]" -> "[S1]"
     invalid = [m for m in re.findall(r"\[S(\d+)\]", answer) if not 1 <= int(m) <= n_sources]
     for m in set(invalid):
         answer = answer.replace(f"[S{m}]", "")
