@@ -9,43 +9,47 @@
 \tikzset{
   base/.style={draw, thick, align=center, font=\small, minimum height=9mm},
   io/.style={base, ellipse, fill=gray!15},
-  proc/.style={base, rectangle, rounded corners=2pt, fill=blue!8, text width=58mm},
-  llm/.style={base, rectangle, rounded corners=2pt, fill=orange!15, text width=58mm},
+  proc/.style={base, rectangle, rounded corners=2pt, fill=blue!8, text width=72mm},
+  llm/.style={base, rectangle, rounded corners=2pt, fill=orange!15, text width=72mm},
   dec/.style={base, diamond, aspect=2.6, fill=yellow!20, inner sep=1pt, text width=30mm},
   db/.style={base, cylinder, shape border rotate=90, aspect=0.2, fill=green!12, text width=30mm},
-  side/.style={base, rectangle, rounded corners=2pt, fill=red!8, text width=40mm},
+  side/.style={base, rectangle, rounded corners=2pt, fill=red!8, text width=46mm},
   arr/.style={-{Stealth[length=2.5mm]}, thick},
   lbl/.style={font=\footnotesize\itshape},
   phase/.style={font=\bfseries\small, text=black!70, rotate=90, anchor=south},
 }
 
+\hyphenpenalty=10000 \exhyphenpenalty=10000  % no hyphenation inside the boxes
 \begin{document}
 \begin{tikzpicture}[node distance=7mm]
 
 % ---------------- main flow ----------------
 \node[io] (q) {User question\\(chat interface)};
 
-\node[llm, below=of q] (router) {\textbf{Router LLM} (gpt-oss-20b, $T=0$)\\
+\node[llm, below=of q] (router) {\textbf{Router LLM} (gpt-oss-20b, $T=0$, low reasoning)\\
   reads the descriptions of the 9 knowledge bases\\
   $\rightarrow$ JSON: \texttt{needs\_retrieval}, \texttt{databases},\\
-  \texttt{search\_query} (in English), \texttt{reason}};
+  \texttt{search\_query} (in English), \texttt{law}, \texttt{reason}};
 \node[dec, below=of router] (json) {Valid JSON?};
 \node[dec, below=9mm of json] (need) {Retrieval needed?};
 
 \node[proc, below=9mm of need] (expand) {\textbf{Query expansion}: English query + legal synonyms
   of the three codes (reserved share / statutory portion / compulsory portion, ...)};
 \node[proc, below=of expand] (search) {\textbf{Vector retrieval} on the chosen DBs, \emph{per country}:\\
-  bge-m3 query embedding; 20 candidates per DB;\\
-  cosine $\geq 0.3$; global rerank; 1 chunk per document;\\
-  top-5 \emph{for each country}};
-\node[dec, below=of search] (found) {Documents found?};
+  bge-m3 embeddings of the English query \emph{and} of the original question;\\
+  20 candidates per DB and query; cosine $\geq 0.3$; 1 chunk per document};
+\node[proc, below=of search] (meta) {\textbf{Past cases}: metadata line added after the header\\
+  (duration, cost, proceeding, articles cited, ...)};
+\node[proc, below=of meta] (rerank) {\textbf{Reranking}: cross-encoder bge-reranker-v2-m3\\
+  on the first 10 candidates $\rightarrow$ top-3 \emph{for each country}};
+\node[dec, below=of rerank] (found) {Documents found?};
 \node[proc, below=9mm of found] (obs) {\textbf{Observation} (computed, no LLM):\\
   DBs searched, countries, articles,\\most similar cases, similarity scores};
 \node[proc, below=of obs] (ctx) {\textbf{Context}: numbered sources [S1]...[Sk], each with header
   Country | Law | Article or Case, + observation + question};
 \node[llm, below=of ctx] (gen) {\textbf{Generator LLM} (gpt-oss-120b, $T=0.1$)\\
   answer only from the sources, cite [S$n$],\\name country and articles, compare countries};
-\node[proc, below=of gen] (check) {\textbf{Citation check}: remove [S$n$] pointing to non-existing sources};
+\node[proc, below=of gen] (check) {\textbf{Citation check}: normalize the [S$n$] labels,\\remove those pointing to non-existing sources};
 \node[io, below=of check] (out) {Answer + sources table + trace\\$\rightarrow$ chat UI and JSON log};
 
 % ---------------- side elements ----------------
@@ -53,7 +57,7 @@
 \node[side, left=14mm of need] (nokb) {Answer from general knowledge\\(gpt-oss-120b) + notice:\\
   ``not based on the system sources''};
 \node[side, right=14mm of found] (retry) {Second ReAct step:\\retry on \emph{all 9} DBs};
-\node[db, right=16mm of search] (dbs) {9 FAISS DBs\\country $\times$\\\{inheritance code,\\divorce code, cases\}};
+\node[db, right=16mm of meta] (dbs) {9 FAISS DBs\\country $\times$\\\{inheritance code,\\divorce code, cases\}};
 
 % ---------------- arrows ----------------
 \draw[arr] (q) -- (router);
@@ -65,8 +69,10 @@
 \draw[arr] (need) -- node[lbl, above] {no} (nokb);
 \draw[arr] (nokb) |- (out);
 \draw[arr] (expand) -- (search);
-\draw[arr, dashed] (dbs) -- (search);
-\draw[arr] (search) -- (found);
+\draw[arr, dashed] (dbs) |- (search);
+\draw[arr] (search) -- (meta);
+\draw[arr] (meta) -- (rerank);
+\draw[arr] (rerank) -- (found);
 \draw[arr] (found) -- node[lbl, right] {yes} (obs);
 \draw[arr] (found) -- node[lbl, above] {no} (retry);
 \draw[arr] (retry) |- (obs);
@@ -78,7 +84,7 @@
 % ---------------- ReAct phases ----------------
 \begin{scope}[on background layer]
   \node[fit=(router)(json)(need), draw=orange!60, dashed, rounded corners, inner sep=3mm] (pT) {};
-  \node[fit=(expand)(search)(found), draw=blue!50, dashed, rounded corners, inner sep=3mm] (pA) {};
+  \node[fit=(expand)(search)(meta)(rerank)(found), draw=blue!50, dashed, rounded corners, inner sep=3mm] (pA) {};
   \node[fit=(obs), draw=green!50!black, dashed, rounded corners, inner sep=3mm] (pO) {};
   \node[fit=(ctx)(gen)(check), draw=red!50, dashed, rounded corners, inner sep=3mm] (pAns) {};
 \end{scope}
