@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# [+] non-root user 1000 (as Hugging Face Spaces require)
+# [+] non-root user (the app does not run as root)
 RUN useradd -m -u 1000 user
 ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH
 
