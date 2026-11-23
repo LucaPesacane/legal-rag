@@ -1,7 +1,4 @@
-# ======================================================================
-# pages/1_Configuration.py
-# Global configuration for the Agentic RAG app (OpenAI + HuggingFace)
-# ======================================================================
+# Global configuration of the app, saved in the session
 import streamlit as st
 
 from backend.config import RAGConfig
@@ -17,7 +14,7 @@ st.title("⚙️ Agent & RAG Configuration")
 
 config = get_config()
 
-# ---------------- LLM SETTINGS ----------------
+# LLM settings
 st.subheader("LLM Settings")
 
 col1, col2 = st.columns(2)
@@ -69,7 +66,7 @@ with col_l2:
         help="Low values give answers faithful to the sources and reproducible.",
     )
 
-# ---------------- EMBEDDING SETTINGS ----------------
+# Embedding settings
 st.subheader("Embedding Settings")
 
 col3, col4 = st.columns(2)
@@ -98,7 +95,7 @@ with col4:
         ),
     )
 
-# ---------------- DATA FOLDERS ----------------
+# Data folders
 st.subheader("Data Folders (JSON with content + metadata)")
 
 new_folder = st.text_input(
@@ -124,7 +121,7 @@ if config.json_folders:
 else:
     st.info("No JSON folders added yet. These are used by the Vector DB Builder page.")
 
-# ---------------- VECTOR STORE SETTINGS ----------------
+# Vector store settings
 st.subheader("Vector Store Settings (FAISS)")
 
 config.vector_store_base_dir = st.text_input(
@@ -155,7 +152,7 @@ else:
         "No explicit vector DB directories registered yet. "
     )
 
-# ---------------- RETRIEVAL SETTINGS ----------------
+# Retrieval settings
 st.subheader("Retrieval & Post-processing")
 
 col_r1, col_r2 = st.columns(2)
@@ -198,7 +195,7 @@ with col_r2:
         value=config.add_case_details,
         help="Duration, cost, proceeding, articles cited... (from the JSON metadata, files not changed).",
     )
-    # [~] the reranker is now implemented (cross-encoder)
+    # [~] cross-encoder reranker
     config.use_rerank = st.checkbox(
         "Use a cross-encoder reranker after retrieval (guide 8)",
         value=config.use_rerank,
@@ -209,26 +206,7 @@ with col_r2:
     )
     config.reranker_model_name = st.text_input("Reranker model", value=config.reranker_model_name)
 
-# ---------------- AGENTIC MODE (within each RAG agent) ----------------
-st.subheader("Agentic RAG Reasoning Mode (per agent)")
-
-config.agentic_mode = st.radio(
-    "Agentic mode",
-    options=["standard_rag", "react", "hybrid_legal"],
-    index=["standard_rag", "react", "hybrid_legal"].index(config.agentic_mode)
-    if config.agentic_mode in ["standard_rag", "react", "hybrid_legal"]
-    else 0,
-    help=(
-        "- standard_rag / react: Task A single agent with ReAct-style logic "
-        "(Thought / Action / Observation / Answer) and Task B multi-agent.\n"
-        "- hybrid_legal: legal metadata extraction (Succession/Divorce + cost, "
-        "duration, civil codes, etc.) + metadata-aware vector search."
-    ),
-)
-
-
-# ---------------- MULTI-AGENT SUPERVISOR ----------------
-# [+] Extension: filter past cases by legal area
+# [+] Extension, filter past cases by legal area
 st.subheader("Extensions (exam guide 8)")
 
 config.filter_cases_by_law = st.checkbox(
@@ -252,7 +230,7 @@ config.use_multiagent = st.checkbox(
     ),
 )
 
-# ---------------- SAVE ----------------
+# Save
 if st.button("💾 Save configuration"):
     st.session_state.config = config
     st.success("Configuration saved in session.")

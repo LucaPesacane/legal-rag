@@ -1,5 +1,3 @@
-# pages/2_Vector_DB_Builder.py
-
 import os
 
 import streamlit as st
@@ -19,18 +17,14 @@ def get_config() -> RAGConfig:
     return st.session_state.config
 
 
-# ---------- CACHING LAYERS ----------
+# Caching layers
 
 @st.cache_data(show_spinner=True)
 def cached_load_documents_from_folders(
     folders: tuple[str, ...],
     corpus_name: str,
 ):
-    """
-    Cache documents loaded from the given folders + corpus tagging.
-
-    Streamlit cache needs hashable args, so we pass folders as a tuple.
-    """
+    # Cache documents loaded from the given folders + corpus tagging
     docs = load_documents_from_folders(list(folders))
     for d in docs:
         d.metadata = d.metadata or {}
@@ -40,13 +34,11 @@ def cached_load_documents_from_folders(
 
 @st.cache_resource(show_spinner=False)
 def cached_get_embedding_model(config: RAGConfig):
-    """
-    Cache the embedding model so it's created only once per session/config.
-    """
+    # Cache the embedding model
     return get_embedding_model(config)
 
 
-# ---------- UI ----------
+# UI
 
 st.title("📚 Vector DB Builder (LangChain + FAISS)")
 
@@ -59,12 +51,12 @@ if not config.json_folders:
     st.warning("No JSON folders configured. Go to the **Configuration** page first.")
     st.stop()
 
-# ---------------- SHOW CONFIGURED JSON FOLDERS ----------------
+# Show configured JSON folders
 st.subheader("Configured JSON folders")
 for f in config.json_folders:
     st.code(f)
 
-# ---------------- [+] THE 9 DBs USED BY TASK A AND TASK B ----------------
+# [+] The 9 DBs used by Task A and Task B
 st.subheader("Build the 9 knowledge-base DBs (country x knowledge base)")
 st.write(
     "Task A and Task B route the questions to one FAISS DB per country "
@@ -81,7 +73,7 @@ if st.button("Build the 9 DBs from the JSON folders"):
     st.session_state.config = config
     st.success(f"{len(docs)} chunks -> {len(paths)} DBs in `{config.vector_store_root}/`")
 
-# ---------------- EXISTING VECTOR DBs ----------------
+# Existing vector DBs
 st.subheader("Existing Vector Databases (inside 'vector_store/')")
 
 if getattr(config, "vector_store_dirs", None):
@@ -91,7 +83,7 @@ if getattr(config, "vector_store_dirs", None):
 else:
     st.info("No vector stores registered yet. You can create one below.")
 
-# ---------------- SELECT FOLDERS FOR THIS DB ----------------
+# Select folders for this DB
 # [~] single custom DB kept as an advanced option
 st.subheader("Advanced: build a single custom vector store")
 st.caption("Not used by Task A / Task B: they need the 9 DBs built above.")
@@ -105,7 +97,7 @@ selected_folders = st.multiselect(
 if not selected_folders:
     st.warning("Select at least one folder to build a vector store.")
 
-# ---------------- VECTOR STORE NAME + CORPUS NAME ----------------
+# Vector store name + corpus name
 st.subheader("Target Vector Store settings")
 
 current_path = config.vector_store_dir or ""
@@ -135,7 +127,7 @@ corpus_name = st.text_input(
 
 st.caption(f"Resulting vector store path will be: `{target_vector_dir}`")
 
-# ---------------- BUILD BUTTON ----------------
+# Build button
 if st.button("🔍 Scan folders & Build Vector DB"):
     if not selected_folders:
         st.error("Please select at least one folder to build a vector store.")
@@ -144,7 +136,7 @@ if st.button("🔍 Scan folders & Build Vector DB"):
     else:
         progress = st.progress(0)
 
-        # 1) Load docs (CACHED)
+        # Load docs
         with st.spinner("Loading JSON documents from selected folders..."):
             docs = cached_load_documents_from_folders(
                 tuple(selected_folders),
@@ -159,14 +151,14 @@ if st.button("🔍 Scan folders & Build Vector DB"):
         st.success(f"Loaded {len(docs)} documents. Initializing embedding model...")
         progress.progress(50)
 
-        # 2) Create embeddings model (CACHED)
+        # Embedding model
         embedding_model = cached_get_embedding_model(config)
         progress.progress(65)
 
-        # Ensure target directory exists (under vector_store/)
+        # Ensure target directory exists
         os.makedirs(target_vector_dir, exist_ok=True)
 
-        # 3) Build FAISS vector store at the chosen directory
+        # Build FAISS vector store
         with st.spinner(
             f"Computing embeddings & building FAISS index at `{target_vector_dir}`..."
         ):
@@ -198,7 +190,7 @@ st.caption(
 
 
 
-# ---------- CACHE MANAGEMENT UI ----------
+# Cache management UI
 with st.expander("Advanced: cache management"):
     if st.button("♻️ Clear caches & Data"):
         # Clear Streamlit caches

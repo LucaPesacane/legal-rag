@@ -10,13 +10,12 @@ from backend.config import RAGConfig
 from backend.ragas_eval import METRICS, build_ragas_dataset_from_answers, compare_systems, run_ragas
 
 # [+] RAGAS evaluation of a test set run, without the Streamlit interface.
-# Usage (from the repo root):
-#   python eval/run_ragas.py dev                           # all answers, key GROQ_API_KEY
-#   python eval/run_ragas.py dev 1/2 GROQ_API_KEY          # first half with one key ...
-#   python eval/run_ragas.py dev 2/2 GROQ_API_KEY_2        # ... second half with another account, in parallel
-#   python eval/run_ragas.py dev merge                     # join the parts (and the recomputed cells)
-#   python eval/run_ragas.py dev fill 1/3 GROQ_API_KEY     # recompute only the empty cells (part 1 of 3)
-# Output: eval/results/ragas_<split>.csv (one row per answer) + Task A vs Task B table.
+# Usage:
+#   python eval/run_ragas.py dev                           # all answers
+#   python eval/run_ragas.py dev 1/2 GROQ_API_KEY          # first half of the answers
+#   python eval/run_ragas.py dev merge                     # join the parts
+#   python eval/run_ragas.py dev fill 1/3 GROQ_API_KEY     # recompute only the empty cells
+# Output: eval/results/ragas_<split>.csv
 
 load_dotenv(".env")
 split = sys.argv[1] if len(sys.argv) > 1 else "dev"
@@ -24,7 +23,7 @@ args = sys.argv[2:]
 part, n_parts = map(int, next((a for a in args if "/" in a), "1/1").split("/"))
 key_var = next((a for a in args if a.startswith("GROQ_API_KEY")), None)
 if key_var:
-    # the free tier limits are per account: another account's key adds throughput and daily tokens
+    # name of the environment variable with the API key
     os.environ["GROQ_API_KEY"] = os.getenv(key_var).strip()
 
 out = Path(f"eval/results/ragas_{split}.csv")
@@ -43,7 +42,7 @@ elif "fill" in args:
     dataset = build_ragas_dataset_from_answers(answers)  # same row order as ragas_<split>.csv
     filled = []
     for name in METRICS:
-        # answers without sources (generic questions): context recall and faithfulness cannot be computed
+        # answers without sources, context recall and faithfulness cannot be computed
         rows = [i for i in df_scores.index[df_scores[name].isna()]
                 if dataset[i]["contexts"] or name not in ("context_recall", "faithfulness")]
         rows = rows[part - 1::n_parts]  # share of this part

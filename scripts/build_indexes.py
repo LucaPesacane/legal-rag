@@ -9,9 +9,7 @@ from backend.embeddings import get_embedding_model
 from backend.vector_store import build_all_vector_stores
 
 # [+] Builds the 9 FAISS DBs (country x knowledge base) from data/Contest_Data.
-# Usage (from the repo root):
-#   python scripts/build_indexes.py                       # model from config
-#   python scripts/build_indexes.py BAAI/bge-m3 vector_store_bge
+# Usage: python scripts/build_indexes.py [model] [folder]
 
 config = RAGConfig()
 if len(sys.argv) > 1:
@@ -22,7 +20,7 @@ docs = load_documents_from_folders(["data/Contest_Data"])
 start = time.time()
 paths = build_all_vector_stores(docs, get_embedding_model(config), root)
 
-# the same embedding model must be used for queries: write it next to the DBs
+# the same embedding model must be used for queries, saved next to the DBs
 Path(root, "embedding_model.txt").write_text(config.embedding_model_name)
 
 print(f"{len(docs)} chunks -> {len(paths)} DBs in {root}/ "

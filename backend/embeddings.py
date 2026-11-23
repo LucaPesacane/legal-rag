@@ -9,7 +9,7 @@ from .config import RAGConfig
 _EMBEDDING_CACHE: dict[str, Embeddings] = {}
 
 
-# [+] Cross-encoder that re-ranks the documents retrieved by FAISS (cached).
+# [+] Cross-encoder that re-ranks the documents retrieved by FAISS.
 def get_reranker(config: RAGConfig) -> CrossEncoder:
     key = f"reranker:{config.reranker_model_name}"
     if key not in _EMBEDDING_CACHE:
@@ -18,7 +18,7 @@ def get_reranker(config: RAGConfig) -> CrossEncoder:
     return _EMBEDDING_CACHE[key]
 
 
-# [~] Embedding model from the cache (built only the first time).
+# [~] Embedding model from the cache.
 def get_embedding_model(config: RAGConfig) -> Embeddings:
     key = f"{config.embedding_provider}:{config.embedding_model_name}"
     if key not in _EMBEDDING_CACHE:
@@ -26,18 +26,10 @@ def get_embedding_model(config: RAGConfig) -> Embeddings:
     return _EMBEDDING_CACHE[key]
 
 
-# [~] Body of the original get_embedding_model; local files are tried first.
+# [~] get_embedding_model where local files are tried first.
 def _build_embedding_model(config: RAGConfig) -> Embeddings:
-    """
-    Returns a LangChain Embeddings object based on config.
 
-    - embedding_provider == "openai":
-        Uses OpenAIEmbeddings.
-
-    - embedding_provider == "huggingface":
-        Uses HuggingFaceEmbeddings with device forced to CPU to avoid
-        issues like "Cannot copy out of meta tensor; no data!" on some setups.
-    """
+    # Returns a LangChain Embeddings object based on config.
     if config.embedding_provider == "openai":
         return OpenAIEmbeddings(model=config.embedding_model_name)
 
@@ -47,8 +39,8 @@ def _build_embedding_model(config: RAGConfig) -> Embeddings:
         try:
             return HuggingFaceEmbeddings(
                 model_name=config.embedding_model_name,
-                model_kwargs={"device": "cpu", "local_files_only": local_only},  # 🔴 force CPU
-                encode_kwargs={"normalize_embeddings": True}, # 🔴 normalize embeddings
+                model_kwargs={"device": "cpu", "local_files_only": local_only},
+                encode_kwargs={"normalize_embeddings": True}, # normalize embeddings
             )
         except OSError:
             continue  # model not downloaded yet

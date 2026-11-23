@@ -1,4 +1,4 @@
-# Development-only tools (EDA charts, tests). Not needed in the deployed app.
+# Development tools, EDA charts and tests
 -r requirements.txt
 matplotlib==3.10.7
 pytest==8.4.2

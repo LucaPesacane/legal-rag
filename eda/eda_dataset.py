@@ -8,8 +8,8 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.document_loader import article_number, clean_text, load_documents_from_folders
 
-# [+] Corpus analysis: counts, lengths, case metadata coverage, article-number check.
-# Run from the repo root: python eda/eda_dataset.py (output in eda/output/)
+# [+] Corpus analysis, counts, lengths, case metadata coverage, article number check.
+# Output in eda/output/
 
 DATA = Path("data/Contest_Data")
 OUT = Path("eda/output")
@@ -24,7 +24,7 @@ first = first.assign(chars=[len(clean_text(json.load(open(s, encoding="utf-8"))[
 
 report = ["# EDA - Contest_Data", ""]
 
-# 1. Documents per country and knowledge base
+# Documents per country and knowledge base
 counts = pd.crosstab(first["country"], [first["kb"], first["law"]])
 report += ["## Documents per country and knowledge base", counts.to_markdown(), "",
            f"Documents: {len(first)} - chunks after splitting: {len(df)}", ""]
@@ -33,7 +33,7 @@ plt.tight_layout()
 plt.savefig(OUT / "01_counts.png", dpi=150)
 plt.close()
 
-# 2. Text length (characters)
+# Text length (characters)
 lengths = first.groupby(["doc_type", "country"])["chars"].describe()[["min", "50%", "max"]]
 report += ["## Text length (characters)", lengths.round(0).to_markdown(), "",
            f"Documents longer than 1500 characters (split): {(first['chars'] > 1500).sum()}", ""]
@@ -44,7 +44,7 @@ plt.tight_layout()
 plt.savefig(OUT / "02_lengths.png", dpi=150)
 plt.close()
 
-# 3. Past cases: % of cases with each metadata field
+# Past cases, % of cases with each metadata field
 cases = first[first["doc_type"] == "case"]
 fields = ["duration", "cost", "subject_of_succession", "disputed_issues", "succession_type",
           "number_of_persons_involved", "marital_regime", "financial_support", "presence_of_children"]
@@ -54,7 +54,7 @@ coverage = cases.groupby("country")[fields].apply(
     lambda g: (g.notna() & ~g.astype(str).apply(lambda c: c.str.lower().isin(missing))).mean() * 100).T.round(0)
 report += ["## Past cases: % with metadata field", coverage.to_markdown(), ""]
 
-# 4. Article number in the text vs civil_codes_used
+# Article number in the text vs civil_codes_used
 mismatch = 0
 codes = 0
 for f in DATA.rglob("*.json"):

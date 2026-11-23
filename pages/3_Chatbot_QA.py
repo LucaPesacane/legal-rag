@@ -1,5 +1,3 @@
-# pages/3_Chatbot_QA.py
-
 from __future__ import annotations
 
 import json
@@ -13,24 +11,19 @@ import streamlit as st
 
 from backend.chat_logger import LOG_PATH, log_turn, source_info
 from backend.config import RAGConfig
-from backend.hybrid_rag import hybrid_answer_question
 from backend.rag_pipeline import answer_question as rag_answer_question
 
 CHAT_DB_PATH = Path("chat_sessions.json")
 
 
-# ---------------------------------------------------------------------
 # Config helper
-# ---------------------------------------------------------------------
 def get_config() -> RAGConfig:
     if "config" not in st.session_state:
         st.session_state.config = RAGConfig()
     return st.session_state.config
 
 
-# ---------------------------------------------------------------------
-# Chat DB helpers (whole conversations saved with "New chat")
-# ---------------------------------------------------------------------
+# Chat DB helpers
 def load_chat_db() -> List[Dict[str, Any]]:
     if CHAT_DB_PATH.exists():
         try:
@@ -53,10 +46,8 @@ def append_chat_to_db(history: List[Dict[str, Any]]) -> None:
         json.dump(db, f, ensure_ascii=False, indent=2)
 
 
-# ---------------------------------------------------------------------
 # Sources panel
-# ---------------------------------------------------------------------
-# [+] Table of the sources: country, code or case, article/case number, excerpt.
+# [+] Table of the sources, country, code or case, article/case number, excerpt.
 def show_sources(sources: List[dict], contexts: List[str]) -> None:
     rows = []
     for s, text in zip(sources, contexts):
@@ -75,9 +66,7 @@ def show_sources(sources: List[dict], contexts: List[str]) -> None:
         st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
-# ---------------------------------------------------------------------
 # Streamlit UI
-# ---------------------------------------------------------------------
 st.title("💬 Legal RAG Chatbot – Italy, Estonia, Slovenia")
 
 config = get_config()
@@ -109,9 +98,7 @@ mode = st.radio(
 config.use_multiagent = mode.startswith("Task B")
 show_trace = st.checkbox("Show reasoning trace", value=True)
 
-# ---------------------------------------------------------------------
-# [~] Render existing history (sources and trace kept for every answer)
-# ---------------------------------------------------------------------
+# [~] Render existing history with sources and trace
 for msg in st.session_state.chat_history:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -121,9 +108,7 @@ for msg in st.session_state.chat_history:
             with st.expander("🔍 Reasoning trace"):
                 st.markdown(msg["trace"])
 
-# ---------------------------------------------------------------------
 # Chat input + answer
-# ---------------------------------------------------------------------
 user_input = st.chat_input("Ask about inheritance or divorce law in Italy, Estonia or Slovenia...")
 
 if user_input:
@@ -134,10 +119,7 @@ if user_input:
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             start = time.time()
-            if config.agentic_mode == "hybrid_legal":
-                answer, docs, trace, _ = hybrid_answer_question(user_input, config, show_reasoning=True)
-            else:
-                answer, docs, trace = rag_answer_question(user_input, config, show_reasoning=True)
+            answer, docs, trace = rag_answer_question(user_input, config, show_reasoning=True)
             latency = time.time() - start
 
         st.markdown(answer)
@@ -150,7 +132,7 @@ if user_input:
                 st.markdown(trace)
         st.caption(f"{'Task B' if config.use_multiagent else 'Task A'} | {latency:.1f}s")
 
-    # [+] structured log of the turn (used by the RAGAS evaluation)
+    # [+] structured log of the turn
     log_turn(
         user_input, answer, docs, config,
         mode="multi" if config.use_multiagent else "single",

@@ -12,9 +12,8 @@ from backend.config import RAGConfig
 from backend.rag_multiagent import multiagent_answer_question
 from backend.rag_single_agent import single_agent_answer_question
 
-# [+] Task A and Task B on the test set: answers in eval/results/answers_<split>[_tag].jsonl,
-# then the metrics without LLM (routing, hit@5, MRR, citations, latency).
-# Usage (from the repo root): python eval/run_eval.py [dev|holdout] [version tag]
+# [+] Task A and Task B on the test set, then the metrics without LLM (routing, hit@5, MRR, latency).
+# Usage: python eval/run_eval.py [dev|holdout] [version tag]
 
 load_dotenv(".env")
 split = sys.argv[1] if len(sys.argv) > 1 else "dev"
@@ -39,7 +38,7 @@ for q in testset:
         rank = next((i + 1 for i, x in enumerate(ids[:5]) if x in q["gold_ids"]), None)
         rows.append({
             "id": q["id"], "category": q["category"], "mode": mode,
-            # routing is correct if all the expected DBs were searched (none expected -> no retrieval)
+            # routing is correct if all the expected DBs were searched
             "routing_ok": set(q["expected_dbs"]) <= dbs if q["expected_dbs"] else not dbs,
             "hit@5": None if not q["gold_ids"] else int(rank is not None),
             "mrr": None if not q["gold_ids"] else (1 / rank if rank else 0.0),

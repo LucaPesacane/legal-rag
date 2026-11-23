@@ -1,4 +1,3 @@
-# backend/chat_logger.py
 from __future__ import annotations
 
 import json
@@ -10,7 +9,6 @@ from langchain_core.documents import Document
 
 from .config import RAGConfig
 
-# [+] Role of this module:
 # Logging of every conversation turn (one JSON object per line), used by the
 # RAGAS evaluation and to study which countries and document types are used.
 

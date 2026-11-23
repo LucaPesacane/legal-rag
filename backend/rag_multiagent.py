@@ -1,4 +1,3 @@
-# backend/rag_multiagent.py
 from __future__ import annotations
 
 import json
@@ -16,21 +15,12 @@ from .rag_single_agent import ANSWER_PROMPT, NO_SOURCES_PROMPT
 from .rag_utils import KB_DESCRIPTIONS, _get_vector_db_dirs, expand_query, fix_citations
 from .vector_store import search_vector_stores
 
-# [+] Role of this module:
-# Task B - multi-agent system with a supervisor.
-#   - 9 specialized agents, one per DB (country x knowledge base), each retrieves
-#     and answers on its own DB only;
-#   - the supervisor chooses the agents from their descriptions, runs them in
-#     parallel and merges their partial answers into one answer.
+# 9 specialized agents, one per DB (country x knowledge base), each retrieves and answers on its own DB only;
 
 # [+] Reply of an agent whose sources are not relevant
 NO_INFO = "NO RELEVANT INFORMATION"
 
-
-# =====================================================================
-# Supervisor step 1: which specialized agents?
-# =====================================================================
-# [+] Supervisor routing: one JSON call -> agents to activate, English search query, legal area.
+# [+] Supervisor routing: one JSON call to the agents to activate, English search query, legal area.
 def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[List[str], str, Optional[str], str]:
     agents_block = "\n".join(f"- {name}: {KB_DESCRIPTIONS.get(name, name)}" for name in db_map)
 
@@ -60,10 +50,6 @@ def _choose_agents(question: str, db_map: Dict[str, str], config: RAGConfig) -> 
     except Exception:
         return list(db_map), expand_query(question), None, f"Supervisor output not valid JSON ({resp[:80]!r}) -> all agents."
 
-
-# =====================================================================
-# Specialized agent: retrieval + partial answer on its own DB
-# =====================================================================
 # [+] Specialized agent: partial answer on its own sources, only about its country.
 def _run_agent(name: str, docs: List[Document], first_number: int, question: str, config: RAGConfig) -> str:
     if not docs:
@@ -82,10 +68,7 @@ def _run_agent(name: str, docs: List[Document], first_number: int, question: str
         system_prompt, f"Sources:\n{sources}\n\nQuestion:\n{question}\n\n(Answer only for {country}.)")
 
 
-# =====================================================================
-# MULTI-AGENT PIPELINE
-# =====================================================================
-# [~] Task B pipeline: routing -> agents retrieve and answer in parallel -> merge.
+# [~] routing -> agents retrieve and answer in parallel -> merge.
 def multiagent_answer_question(
     question: str,
     config: RAGConfig,
@@ -94,14 +77,14 @@ def multiagent_answer_question(
     db_map = _get_vector_db_dirs(config)  # {agent/db name -> path}
     supervisor = LLMBackend(config)
 
-    # ---- Supervisor: routing ----
+    # routing
     agents, search_query, law, reason = _choose_agents(question, db_map, config)
     if not agents:
         answer = supervisor.chat(NO_SOURCES_PROMPT, question)
         trace = f"**Supervisor**: no agent needed. {reason}" if show_reasoning else None
         return answer, [], trace
 
-    # ---- Agents: retrieval on their own DB (sources numbered globally) ----
+    # Agents: retrieval on their own DB (sources numbered globally)
     embedding_model = get_embedding_model(config)
     agent_docs: Dict[str, List[Document]] = {}
     all_docs: List[Document] = []
@@ -120,7 +103,7 @@ def multiagent_answer_question(
         agent_docs[name] = docs
         all_docs += docs
 
-    # ---- Agents: partial answers, in parallel (max 3: API rate limit) ----
+    # partial answers, in parallel (max 3: API rate limit)
     with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {
             name: pool.submit(_run_agent, name, agent_docs[name], first_numbers[name], question, config)
@@ -130,7 +113,7 @@ def multiagent_answer_question(
     # discarded only if it is just NO_INFO
     useful = {name: a for name, a in partial.items() if not a.strip().startswith(NO_INFO)}
 
-    # ---- Supervisor: merge ----
+    # merge
     if not useful:
         answer = "The selected knowledge bases do not contain information to answer this question."
     elif len(useful) == 1:

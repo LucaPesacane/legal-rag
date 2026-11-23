@@ -7,7 +7,7 @@ from backend.config import RAGConfig  # [+]
 from backend.embeddings import get_embedding_model
 from backend.vector_store import load_vector_store
 
-# Load env vars from .env (OPENAI_API_KEY, etc.)
+# Load env vars from .env
 load_dotenv()
 
 st.set_page_config(
@@ -25,7 +25,7 @@ for key_name, provider in [("GROQ_API_KEY", "Groq"), ("OPENAI_API_KEY", "OpenAI"
     else:
         st.caption(f"{key_name} not set (needed only to use {provider}).")
 
-# [+] Warm up: embedding model and FAISS DBs loaded once at startup (then cached)
+# [+] Warm up, embedding model and FAISS DBs loaded once at startup
 config = RAGConfig()
 with st.spinner("Loading embedding model and vector databases..."):
     embedding_model = get_embedding_model(config)

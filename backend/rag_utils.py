@@ -1,4 +1,3 @@
-# backend/rag_utils.py
 from __future__ import annotations
 
 import os
@@ -19,15 +18,14 @@ LEGAL_SYNONYMS: List[List[str]] = [
 ]
 
 
-# [+] Query expansion: if the query has one term of a group, the other terms are added.
+# [+] Query expansion, if the query has one term of a group, the other terms are added.
 def expand_query(query: str) -> str:
     q = query.lower()
     extra = [t for group in LEGAL_SYNONYMS if any(term in q for term in group) for t in group if t not in q]
     return f"{query} ({', '.join(extra)})" if extra else query
 
 
-# [+] Remove citations to sources that do not exist (e.g. [S26] with 10 sources: an article
-# number used as a label); returns the answer and the number of citations removed.
+# [+] Remove citations to sources that do not exist; returns the answer and the number of citations removed.
 def fix_citations(answer: str, n_sources: int) -> tuple[str, int]:
     answer = re.sub(r"\[\s*S\s*(\d+)\s*\]", r"[S\1]", answer)  # "[ S1 ]" -> "[S1]"
     invalid = [m for m in re.findall(r"\[S(\d+)\]", answer) if not 1 <= int(m) <= n_sources]
@@ -68,12 +66,11 @@ KB_DESCRIPTIONS: Dict[str, str] = {
 
 
 def _get_vector_db_dirs(config: RAGConfig) -> Dict[str, str]:
-    """
-    Returns a mapping: {db_name -> folder_path}
+    # Returns a mapping: {db_name -> folder_path}
 
-    - If config.vector_store_dirs exists and is non-empty, use that.
-    - Else fall back to single db: {<basename(vector_store_dir)>: vector_store_dir}.
-    """
+    # If config.vector_store_dirs exists and is non-empty, use that.
+    # Else fall back to single db: {<basename(vector_store_dir)>: vector_store_dir}.
+
     dirs: List[str] = []
 
     if getattr(config, "vector_store_dirs", None):

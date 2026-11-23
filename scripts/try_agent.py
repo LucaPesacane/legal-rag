@@ -9,10 +9,8 @@ from backend.config import RAGConfig
 from backend.rag_multiagent import multiagent_answer_question
 from backend.rag_single_agent import single_agent_answer_question
 
-# [+] Runs Task A or Task B on a few questions: trace, answer and sources.
-# Usage:
-#   python scripts/try_agent.py ["question" ...]           # Task A
-#   python scripts/try_agent.py --multi ["question" ...]   # Task B
+# [+] Runs Task A or Task B on a few questions, trace, answer and sources.
+# Usage: python scripts/try_agent.py [--multi] ["question" ...]
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 

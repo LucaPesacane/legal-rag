@@ -13,8 +13,8 @@ from backend.rag_multiagent import _choose_agents
 from backend.rag_single_agent import _decide
 from backend.rag_utils import _get_vector_db_dirs
 
-# [+] Routing only (no retrieval, no answer): default vs low reasoning effort of the router.
-# Usage (from the repo root): python eval/compare_router.py [dev|holdout] [repeats]
+# [+] Routing only, default vs low reasoning effort of the router.
+# Usage: python eval/compare_router.py [dev|holdout] [repeats]
 
 load_dotenv(".env")
 split = sys.argv[1] if len(sys.argv) > 1 else "dev"

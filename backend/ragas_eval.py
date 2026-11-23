@@ -1,4 +1,3 @@
-# backend/ragas_eval.py
 from __future__ import annotations
 
 import json
@@ -21,16 +20,11 @@ from .config import RAGConfig
 from .embeddings import get_embedding_model
 from .llm_provider import LLMBackend
 
-# [+] Role of this module:
-# RAGAS evaluation (guide 6): context precision, context recall, faithfulness,
-# answer relevancy, answer correctness. Used by the RAG Evaluation page and eval/run_ragas.py.
-
 TESTSET_PATH = Path("eval/testset.json")
 METRICS = {m.name: m for m in [context_precision, context_recall, faithfulness, answer_relevancy, answer_correctness]}
 
 
-# [+] RAGAS rows from a test set run (eval/run_eval.py):
-# ground truth = reference answer, chat_id = "<question id>/<single|multi>".
+# [+] RAGAS rows from a test set run (eval/run_eval.py), ground truth = reference answer, chat_id = "<question id>/<single|multi>".
 def build_ragas_dataset_from_answers(answers_path: Path) -> Dataset:
     references = {q["question"]: q["reference"] for q in json.load(open(TESTSET_PATH, encoding="utf-8"))}
     rows = []
@@ -60,11 +54,11 @@ def get_ragas_models(config: RAGConfig):
     return ChatOpenAI(model="gpt-4o-mini", temperature=0.0), OpenAIEmbeddings(model="text-embedding-3-small")
 
 
-# [+] Compute the metrics (all 5 by default): one row per answer.
+# [+] Compute the metrics (all 5 by default), one row per answer.
 def run_ragas(dataset: Dataset, config: RAGConfig, metric_names: list[str] | None = None) -> pd.DataFrame:
     eval_llm, eval_embeddings = get_ragas_models(config)
 
-    # Groq returns one completion per call: answer_relevancy must ask for 1, not 3
+    # Groq returns one completion per call, answer_relevancy must ask for 1, not 3
     answer_relevancy.strictness = 1
 
     result = evaluate(
@@ -81,7 +75,7 @@ def run_ragas(dataset: Dataset, config: RAGConfig, metric_names: list[str] | Non
     return df_scores
 
 
-# [+] Task A vs Task B table (guide 7.2): mean of each metric.
+# [+] mean of each metric.
 def compare_systems(df_scores: pd.DataFrame) -> pd.DataFrame:
     metrics = ["context_precision", "context_recall", "faithfulness", "answer_relevancy", "answer_correctness"]
     system = df_scores["chat_id"].str.split("/").str[1].map(

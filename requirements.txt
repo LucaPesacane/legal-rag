@@ -1,6 +1,5 @@
-# Versions pinned on 2026-11-12 (Python 3.11). `pip check` clean.
-# LangChain is kept on the 0.3 series: ragas imports modules removed in
-# langchain-community 0.4 / langchain 1.x.
+# Versions pinned for Python 3.11
+# LangChain 0.3, required by ragas
 
 # UI
 streamlit==1.67.0
@@ -16,7 +15,7 @@ langchain-openai==0.3.35
 langchain-huggingface==0.3.1
 langchain-text-splitters==0.3.11
 
-# LLM clients (OpenAI SDK is also used for Groq's OpenAI-compatible API)
+# LLM clients (also used for Groq)
 openai==1.109.1
 
 # Embeddings (local)

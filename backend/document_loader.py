@@ -6,10 +6,9 @@ from typing import List, Optional
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# Role of this module:
-#This is the ingestion layer: it converts your raw JSON legal cases into
+# This is the ingestion layer: it converts your raw JSON legal cases into
 # LangChain Documents that can then be embedded and stored.
-# Used mainly by vector_store.py and the Vector DB Builder page.
+
 
 # [+] Folder name -> country name used in the metadata
 COUNTRIES = {"italy": "Italy", "estonia": "Estonia", "slovenia": "Slovenia"}
@@ -20,7 +19,7 @@ splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200)
 
 # [+] Remove line separators, non-breaking spaces and empty lines.
 def clean_text(text: str) -> str:
-    text = text.replace(" ", "\n").replace("\xa0", " ")
+    text = text.replace("\u2028", "\n").replace("\xa0", " ")
     lines = [" ".join(line.split()) for line in text.splitlines()]
     return "\n".join(line for line in lines if line)
 
@@ -35,7 +34,7 @@ def article_number(text: str) -> Optional[str]:
     return None
 
 
-# [+] Uniform metadata: country and knowledge base from the folder path, case or code fields.
+# [+] Uniform metadata, country and knowledge base from the folder path, case or code fields.
 def _build_metadata(meta: dict, path: Path, text: str) -> dict:
     # "type" means the country for codes but judicial/extrajudicial for cases
     country = COUNTRIES[path.parent.parent.name.lower()]

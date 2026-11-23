@@ -8,15 +8,11 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 import shutil
 
-from .document_loader import case_details  # [+]
-
-# This is the vector database layer: which builds and loads FAISS vector stores using LangChain-Documents.
+from .document_loader import case_details
 
 # During offline step, called by the Vector DB Builder page to create FAISS DBs.
 # During online step, called by RAG pipelines to load the correct DB and create retrievers.
 
-
-# backend/vector_store.py
 # Simple in-memory cache: {path -> FAISS vector store}
 _VECTOR_STORE_CACHE: dict[str, FAISS] = {}
 
@@ -121,7 +117,7 @@ def search_vector_stores(
                 header, _, text = d.page_content.partition("\n")
                 d.page_content = f"{header}\nCase details: {details}\n{text}"
 
-    # optional second ranking: the cross-encoder reads question and document together
+    # second ranking: the cross-encoder reads question and document together
     if reranker and kept:
         kept = kept[:rerank_candidates]
         scores = reranker.predict([(question, d.page_content) for d in kept])

@@ -15,7 +15,7 @@ Streamlit app with chat, JSON log and RAGAS evaluation.
 ```bash
 git clone https://github.com/LucaPesacane/legal-rag.git
 cd legal-rag
-cp .env.example .env          # set GROQ_API_KEY
+echo "GROQ_API_KEY=your_key" > .env
 ```
 
 Copy the dataset folders (`Italy`, `Estonia`, `slovenia`) into `data/Contest_Data`.

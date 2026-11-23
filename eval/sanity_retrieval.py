@@ -8,9 +8,8 @@ from backend.config import RAGConfig
 from backend.embeddings import get_embedding_model
 from backend.vector_store import search_vector_stores
 
-# [+] Retrieval check without LLM on hand-written questions with known DBs and gold documents:
-# routed (only the right DBs) vs unrouted (all 9 DBs).
-# Usage: python eval/sanity_retrieval.py [db_root]   (default: vector_store)
+# [+] Retrieval check without LLM, routed (only the right DBs) vs unrouted (all 9 DBs).
+# Usage: python eval/sanity_retrieval.py [db_root]
 
 QUESTIONS = [
     ("When does intestate succession apply in Estonia?",

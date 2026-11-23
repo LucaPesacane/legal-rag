@@ -4,6 +4,6 @@
 __pycache__
 *.pyc
 .git
-# local experiments and logs are not needed in the image
+# local experiments and logs
 vector_store_minilm
 logs

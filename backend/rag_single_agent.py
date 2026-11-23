@@ -1,4 +1,3 @@
-# backend/rag_single_agent.py
 from __future__ import annotations
 
 import json
@@ -14,13 +13,6 @@ from .embeddings import get_embedding_model, get_reranker
 from .llm_provider import LLMBackend
 from .rag_utils import KB_DESCRIPTIONS, _get_vector_db_dirs, expand_query, fix_citations
 from .vector_store import search_vector_stores
-
-# [+] Role of this module:
-# Task A - single agent with ReAct-style logic:
-#   Thought     -> does the question need documents? which DBs? (one JSON answer)
-#   Action      -> vector retrieval on the chosen DBs (+ fallback on all DBs)
-#   Observation -> short summary of what was retrieved (computed, no LLM)
-#   Answer      -> final LLM call with the numbered sources
 
 # [+] Answer rules, shared with Task B
 ANSWER_PROMPT = (
@@ -39,7 +31,7 @@ ANSWER_PROMPT = (
     "- Write the answer in the same language as the question (an English question gets an "
     "English answer, even if it is about Italy), clearly and concisely."
 )
-# [+] Answer without documents (generic or out-of-domain questions)
+# [+] Answer without documents, generic or out-of-domain questions
 NO_SOURCES_PROMPT = (
     "You are a legal assistant specialized in inheritance and divorce law of Italy, Estonia "
     "and Slovenia. No document from the database was used for this answer.\n"
@@ -48,10 +40,6 @@ NO_SOURCES_PROMPT = (
     "outside inheritance and divorce law, also say that the system is specialized in those topics."
 )
 
-
-# =====================================================================
-# Thought: retrieval decision + choice of the knowledge bases
-# =====================================================================
 # [+] Thought: one JSON call -> retrieval needed?, which DBs, English search query, legal area.
 def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[bool, List[str], str, Optional[str], str]:
     kb_block = "\n".join(f"- {name}: {KB_DESCRIPTIONS.get(name, name)}" for name in db_map)
@@ -74,7 +62,7 @@ def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[b
     )
     user_prompt = f"Databases:\n{kb_block}\n\nQuestion:\n{question}"
 
-    # smaller model, low reasoning: enough for this classification
+    # smaller model, low reasoning
     router = LLMBackend(replace(config, llm_model_name=config.router_model_name, temperature=0.0,
                                  reasoning_effort=config.router_reasoning_effort))
     resp = router.chat(system_prompt, user_prompt)
@@ -95,10 +83,6 @@ def _decide(question: str, db_map: Dict[str, str], config: RAGConfig) -> Tuple[b
         return True, list(db_map), search_query, law, reason + " (no valid database named -> all databases)"
     return need, dbs, search_query, law, reason
 
-
-# =====================================================================
-# Action: retrieval (each country gets its own top_k)
-# =====================================================================
 # [+] Action: vector search on the chosen DBs, top_k per country.
 def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config: RAGConfig,
               law: Optional[str] = None, original: Optional[str] = None) -> List[Document]:
@@ -122,10 +106,6 @@ def _retrieve(question: str, db_names: List[str], db_map: Dict[str, str], config
         )
     return docs
 
-
-# =====================================================================
-# Observation: what did the retrieval find? (no LLM call needed)
-# =====================================================================
 # [+] Observation: summary of what was retrieved (computed, no LLM).
 def _observation(db_names: List[str], docs: List[Document]) -> str:
     if not docs:
@@ -153,11 +133,7 @@ def _observation(db_names: List[str], docs: List[Document]) -> str:
 def _build_context(docs: List[Document]) -> str:
     return "\n\n".join(f"[S{i}] {d.page_content}" for i, d in enumerate(docs, start=1))
 
-
-# =====================================================================
-# SINGLE-AGENT PIPELINE
-# =====================================================================
-# [~] Task A pipeline: Thought -> Action (+ fallback on all DBs) -> Observation -> Answer.
+# [~] Thought -> Action (+ fallback on all DBs) -> Observation -> Answer.
 def single_agent_answer_question(
     question: str,
     config: RAGConfig,
@@ -166,10 +142,10 @@ def single_agent_answer_question(
     db_map = _get_vector_db_dirs(config)  # {db_name -> path}
     llm_backend = LLMBackend(config)
 
-    # ---- Thought ----
+    # Thought
     need_retrieval, db_names, search_query, law, reason = _decide(question, db_map, config)
 
-    # ---- Action ----
+    # Action
     docs: List[Document] = []
     action = "No retrieval: answer from general knowledge."
     if need_retrieval:
@@ -187,10 +163,10 @@ def single_agent_answer_question(
             docs = _retrieve(search_query, db_names, db_map, config, law, question)
             action +="\n-> nothing relevant, retried on all databases"
 
-    # ---- Observation ----
+    # Observation
     observation = _observation(db_names, docs) if need_retrieval else "No documents used."
 
-    # ---- Answer ----
+    # Answer
     if docs:
         system_prompt = ANSWER_PROMPT
         user_prompt = f"Sources:\n{_build_context(docs)}\n\nSummary of the retrieval:\n{observation}\n\nQuestion:\n{question}"

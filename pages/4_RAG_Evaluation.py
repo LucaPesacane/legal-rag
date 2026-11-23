@@ -1,5 +1,3 @@
-# pages/4_RAG_Evaluation.py
-
 import json
 from pathlib import Path
 from typing import List, Dict, Any
@@ -11,13 +9,11 @@ from backend.config import RAGConfig
 from backend.ragas_eval import build_ragas_dataset_from_answers, compare_systems, run_ragas
 
 CHAT_DB_PATH = Path("chat_sessions.json")
-# [+] answers of Task A and Task B on the test set (final configuration), written by eval/run_eval.py
+# [+] answers of Task A and Task B on the test set, written by eval/run_eval.py
 ANSWERS_PATH = Path("eval/results/answers_dev_v4.jsonl")
 
 
-# ---------------------------------------------------------------------
-# Helpers: config + chat DB
-# ---------------------------------------------------------------------
+# Helpers, config + chat DB
 def get_config() -> RAGConfig:
     if "config" not in st.session_state:
         st.session_state.config = RAGConfig()
@@ -35,26 +31,9 @@ def load_chat_db() -> List[Dict[str, Any]]:
     return []
 
 
-# ---------------------------------------------------------------------
 # Build RAGAS dataset from chat_sessions.json
-# ---------------------------------------------------------------------
 def _extract_contexts_from_assistant_msg(msg: Dict[str, Any]) -> List[str]:
-    """
-    Extract 'contexts' from a stored assistant message.
-
-    We assume that when answering, you stored retrieved sources like:
-
-        {
-          "role": "assistant",
-          "content": "...",
-          "sources": [
-             {"page_content": "...", "metadata": {...}},
-             ...
-          ]
-        }
-
-    If no sources are present, we return [].
-    """
+    # Extract 'contexts' from a stored assistant message
     contexts: List[str] = []
 
     sources = msg.get("sources") or msg.get("contexts") or []
@@ -69,16 +48,7 @@ def _extract_contexts_from_assistant_msg(msg: Dict[str, Any]) -> List[str]:
 
 
 def build_ragas_dataset_from_chats(chat_db: List[Dict[str, Any]]) -> Dataset:
-    """
-    Flatten chat_sessions.json into a RAGAS-compatible Dataset.
-
-    We create rows with:
-      - question
-      - answer
-      - contexts (list of strings)
-      - ground_truth (string; initially empty, user can edit it in the UI)
-      - chat_id (for traceability)
-    """
+    # Flatten chat_sessions.json into a RAGAS-compatible Dataset
     rows: List[Dict[str, Any]] = []
 
     for chat in chat_db:
@@ -117,16 +87,14 @@ def build_ragas_dataset_from_chats(chat_db: List[Dict[str, Any]]) -> Dataset:
 
 
 
-# ---------------------------------------------------------------------
 # Streamlit UI
-# ---------------------------------------------------------------------
 st.title("📊 RAG Evaluation (Ragas)")
 
 config = get_config()
 
 st.write("Evaluate your RAG chatbot using Ragas metrics based on `chat_sessions.json`.")
 
-# ---- Metric help / explanations ----
+# Metric explanations
 with st.expander("ℹ️ What do these metrics mean?"):
     st.write(
         "- **context_precision**: Of all the retrieved context, how much is actually relevant to the answer? "
@@ -152,7 +120,7 @@ with st.expander("ℹ️ What do these metrics mean?"):
         "All metrics are in [0, 1]. Higher is better. Use them to compare different RAG settings and pipelines."
     )
 
-# [+] Data to evaluate: test set answers or saved chats
+# [+] Data to evaluate, test set answers or saved chats
 data_source = st.radio(
     "Data to evaluate",
     [f"Test set answers ({ANSWERS_PATH.name})", f"Saved chats ({CHAT_DB_PATH.name})"],
@@ -224,7 +192,7 @@ if max_rows < len(df_edited):
 else:
     df_eval = df_edited
 
-# --------- HARD FIXES: normalize types and drop bad rows ---------
+# Normalize types and drop bad rows
 # Ensure all core columns are proper strings
 df_eval["question"] = df_eval["question"].fillna("").astype(str)
 df_eval["answer"] = df_eval["answer"].fillna("").astype(str)
@@ -232,20 +200,12 @@ df_eval["ground_truth"] = df_eval["ground_truth"].fillna("").astype(str)
 
 
 def _normalize_contexts(x):
-    """
-    Normalize the 'contexts' field so that each row is always a list[str].
-
-    Handles:
-      - list/tuple of items
-      - numpy arrays (via .tolist())
-      - scalars / strings
-      - None / NaN
-    """
+    # Normalize the 'contexts' field so that each row is always a list[str]
     # Lists or tuples
     if isinstance(x, (list, tuple)):
         return [str(c) for c in x]
 
-    # Numpy arrays or similar (have .tolist but are not strings)
+    # Numpy arrays or similar
     if hasattr(x, "tolist") and not isinstance(x, (str, bytes)):
         try:
             arr = x.tolist()
@@ -282,9 +242,7 @@ if df_eval.empty:
 # Convert back to HF Dataset for Ragas
 dataset_eval = Dataset.from_pandas(df_eval, preserve_index=False)
 
-# ---------------------------------------------------------------------
 # Run evaluation
-# ---------------------------------------------------------------------
 if st.button("Run RAGAS evaluation"):
     with st.spinner("Running RAGAS metrics..."):
         try:

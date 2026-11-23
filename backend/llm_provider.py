@@ -1,5 +1,3 @@
-# backend/llm_provider.py
-
 from __future__ import annotations
 
 import os
@@ -11,37 +9,16 @@ from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
 from .config import RAGConfig
 
-
-# Role of this module:
-# Abstracts away LLM details so all other modules call the same simple interface, regardless of provider or model.
-
-
 # [~] Groq added as provider.
 class LLMBackend:
-    """
-    Unified interface for LLM providers:
-
-      - groq         → ChatOpenAI pointed at Groq's OpenAI-compatible endpoint
-      - openai       → ChatOpenAI
-      - huggingface  → HuggingFaceEndpoint + ChatHuggingFace
-
-    Hugging Face notes:
-      - `llm_model_name` must be a valid repo id on HF
-        (e.g. `mistralai/Mistral-7B-Instruct-v0.3`) or a local path
-        if you later switch to local inference.
-      - For private/gated models you must set
-        HUGGINGFACEHUB_API_TOKEN (or HF_TOKEN) in your .env.
-    """
-
+    # Unified interface for LLM providers
     # [~] max_tokens and temperature read from the config.
     def __init__(self, config: RAGConfig):
         self.config = config
         self.max_new_tokens = getattr(config, "max_tokens", 512)
         self.temperature = getattr(config, "temperature", 0.2)
 
-    # ------------------------------------------------------------------
     # GROQ (OpenAI-compatible API)
-    # ------------------------------------------------------------------
     GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
     # [+] Groq chat model: same API as OpenAI, only base_url and api_key change.
@@ -61,9 +38,7 @@ class LLMBackend:
             timeout=60,
         )
 
-    # ------------------------------------------------------------------
     # OPENAI
-    # ------------------------------------------------------------------
     def _build_openai_chat(self) -> BaseChatModel:
         # Requires OPENAI_API_KEY in env
         return ChatOpenAI(
@@ -71,9 +46,7 @@ class LLMBackend:
             temperature=self.temperature,
         )
 
-    # ------------------------------------------------------------------
     # HUGGING FACE (Inference API via HuggingFaceEndpoint)
-    # ------------------------------------------------------------------
     def _build_hf_chat(self) -> Optional[BaseChatModel]:
         repo_id = (self.config.llm_model_name or "").strip()
         if not repo_id:
@@ -107,9 +80,7 @@ class LLMBackend:
             print(f"[LLMBackend] Error creating Hugging Face model: {e}")
             return None
 
-    # ------------------------------------------------------------------
-    # Factory
-    # ------------------------------------------------------------------
+
     # [~] Groq branch added.
     def get_langchain_llm(self) -> Optional[BaseChatModel]:
         provider = self.config.llm_provider
@@ -125,9 +96,6 @@ class LLMBackend:
 
         return None
 
-    # ------------------------------------------------------------------
-    # High-level chat method used by rag_pipeline
-    # ------------------------------------------------------------------
     # [~] Groq hint added to the configuration error message.
     def chat(self, system_prompt: str, user_prompt: str) -> str:
         llm = self.get_langchain_llm()

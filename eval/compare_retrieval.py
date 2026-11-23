@@ -12,10 +12,8 @@ from backend.config import RAGConfig
 from backend.rag_single_agent import _decide, _retrieve
 from backend.rag_utils import _get_vector_db_dirs
 
-# [+] Retrieval with and without a config flag (same routing): hit@1, hit@5, MRR, seconds.
-# Usage (from the repo root): python eval/compare_retrieval.py <config_flag> [dev|holdout] [field=value ...]
-#   e.g. python eval/compare_retrieval.py filter_cases_by_law
-#        python eval/compare_retrieval.py use_rerank dev reranker_model_name=BAAI/bge-reranker-v2-m3
+# [+] Retrieval with and without a config flag (same routing), hit@1, hit@5, MRR, seconds.
+# Usage: python eval/compare_retrieval.py <config_flag> [dev|holdout] [field=value ...]
 
 load_dotenv(".env")
 flag = sys.argv[1]
@@ -27,7 +25,7 @@ testset = [q for q in json.load(open("eval/testset.json", encoding="utf-8"))
 
 base = replace(RAGConfig(**overrides), **{flag: False})  # "without" = the flag off
 db_map = _get_vector_db_dirs(base)
-# warm-up outside the timing: models are loaded once here
+# warm-up outside the timing
 _retrieve("warm up", list(db_map)[:1], db_map, replace(base, **{flag: True}))
 
 rows = []
@@ -40,7 +38,7 @@ for q in testset:
         ids = [d.metadata["id"] for d in docs][:5]
         hit1 = int(bool(ids) and ids[0] in q["gold_ids"])
         rank = next((i + 1 for i, x in enumerate(ids) if x in q["gold_ids"]), None)
-        # noise: share of retrieved past cases of the same legal area as the question
+        # share of retrieved past cases of the same legal area
         cases = [d for d in docs if d.metadata["doc_type"] == "case"]
         same_law = sum(d.metadata["law"] == law for d in cases) / len(cases) if cases and law else None
         rows.append({"id": q["id"], "category": q["category"], "law": law, flag: name,

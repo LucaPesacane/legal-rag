@@ -1,35 +1,19 @@
-# backend/config.py
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import List
 
-# Role of this module:
 # All other backend modules read from one shared configuration object.
 # The Streamlit config page writes into RAGConfig, and the backend behaves accordingly
-
 
 # [~] Groq models, 9 DBs, retrieval and extension options added.
 @dataclass
 class RAGConfig:
-    """
-    Global configuration object stored in Streamlit session state.
 
-    It controls:
-      - LLM provider & model
-      - Embedding provider & model
-      - Data folders with JSON corpus
-      - Vector store locations (single & multi-DB)
-      - Retrieval behavior
-      - Agentic behavior (standard RAG, ReAct, hybrid legal RAG)
-      - Optional multi-agent supervisor
-    """
-
-    # ---------------- LLM ----------------
-    # [+] "groq"     -> ChatOpenAI on Groq's OpenAI-compatible API (needs GROQ_API_KEY)
-    # "openai"       -> ChatOpenAI (needs OPENAI_API_KEY)
-    # "huggingface"  -> HuggingFaceEndpoint / ChatHuggingFace (needs HF token for private models)
+    # LLM
+    # [+] "groq"     -> ChatOpenAI on Groq's OpenAI-compatible API (GROQ_API_KEY)
+    # "openai"       -> ChatOpenAI (OPENAI_API_KEY)
+    # "huggingface"  -> HuggingFaceEndpoint / ChatHuggingFace
     llm_provider: str = "groq"  # [~]
     llm_model_name: str = "openai/gpt-oss-120b"  # [~]
     # [+] smaller model for the routing decision (Thought step)
@@ -44,32 +28,25 @@ class RAGConfig:
     reasoning_effort: str = ""
     router_reasoning_effort: str = "low"
 
-    # ---------------- Embeddings ----------------
-    # "huggingface" -> HuggingFaceEmbeddings (any HF model or local path)
-    # "openai"      -> OpenAIEmbeddings
+    # Embeddings
     embedding_provider: str = "huggingface"
     embedding_model_name: str = "BAAI/bge-m3"  # [~] multilingual
 
-    # ---------------- Data (JSON corpus) ----------------
+    # Data (JSON corpus)
     # List of folders where JSON corpus lives
     json_folders: List[str] = field(default_factory=lambda: ["data/Contest_Data"])  # [~]
 
-    # ---------------- Vector stores (paths) ----------------
+    # Vector stores (paths)
     # Root/base folder under which all FAISS vector DBs will be created.
-    # Example: "vector_store" -> "vector_store/divorce_db", "vector_store/succession_db", etc.
-    #
-    # NOTE: `vector_store_base_dir` is kept for compatibility with the
-    # Vector DB Builder / Config pages, which reference this attribute.
     vector_store_base_dir: str = "vector_store"
 
     # Alias used by some newer code; kept equal to base_dir by default.
     vector_store_root: str = "vector_store"
 
     # Default / active vector store directory (single-DB mode)
-    # Example: "vector_store/default"
     vector_store_dir: str = "vector_store"
 
-    # Optional: multiple DBs (multi-DB mode)
+    # multiple DBs (multi-DB mode)
     # [~] default: the 9 DBs country x knowledge base
     vector_store_dirs: List[str] = field(default_factory=lambda: [
         f"vector_store/{country}_{kb}"
@@ -77,7 +54,7 @@ class RAGConfig:
         for kb in ("inheritance_code", "divorce_code", "cases")
     ])
 
-    # ---------------- Retrieval ----------------
+    # Retrieval
     # [~] documents kept per country (Task A) / per agent (Task B)
     top_k: int = 3
     # [+] documents retrieved from each DB before filtering and reranking
@@ -96,12 +73,5 @@ class RAGConfig:
     # [+] only the first candidates by cosine are reranked (slow on CPU)
     rerank_candidates: int = 10
 
-    # ---------------- Agentic behavior ----------------
-    # agentic_mode:
-    #   - "standard_rag"  -> classic RAG (vector retrieval + answer)
-    #   - "react"         -> ReAct-style agentic RAG (Thought / Action / Observation)
-    #   - "hybrid_legal"  -> hybrid legal RAG (metadata extraction + metadata-aware vector search)
-    agentic_mode: str = "react"  # [~]
-
-    # Multi-agent supervisor switch (used only in rag_pipeline for multi-DB agent routing)
+    # Multi-agent supervisor switch
     use_multiagent: bool = False

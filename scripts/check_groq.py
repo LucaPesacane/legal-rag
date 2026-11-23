@@ -9,7 +9,7 @@ from backend.config import RAGConfig
 from backend.llm_provider import LLMBackend
 
 # [+] Checks that the Groq models answer through LLMBackend.
-# Usage (from the repo root): python scripts/check_groq.py [model ...]
+# Usage: python scripts/check_groq.py [model ...]
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
