@@ -1,6 +1,5 @@
 # pages/4_RAG_Evaluation.py
 
-import os
 import json
 from pathlib import Path
 from typing import List, Dict, Any
@@ -8,20 +7,12 @@ from typing import List, Dict, Any
 import streamlit as st
 from datasets import Dataset
 
-from ragas import evaluate
-from ragas.metrics import (
-    answer_relevancy,
-    faithfulness,
-    context_precision,
-    context_recall,
-    answer_correctness,
-)
-
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-
 from backend.config import RAGConfig
+from backend.ragas_eval import build_ragas_dataset_from_answers, compare_systems, run_ragas
 
 CHAT_DB_PATH = Path("chat_sessions.json")
+# [+] answers of Task A and Task B on the test set (final configuration), written by eval/run_eval.py
+ANSWERS_PATH = Path("eval/results/answers_dev_v4.jsonl")
 
 
 # ---------------------------------------------------------------------
@@ -125,32 +116,6 @@ def build_ragas_dataset_from_chats(chat_db: List[Dict[str, Any]]) -> Dataset:
     return Dataset.from_list(rows)
 
 
-# ---------------------------------------------------------------------
-# Ragas evaluation models (OpenAI via LangChain)
-# ---------------------------------------------------------------------
-def get_ragas_models():
-    """
-    Create LangChain LLM + embeddings for Ragas to use.
-
-    Uses:
-      - ChatOpenAI("gpt-4o-mini")
-      - OpenAIEmbeddings("text-embedding-3-small")
-    """
-    if not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError(
-            "OPENAI_API_KEY is not set. Please add it to your .env "
-            "or environment before running RAGAS evaluation."
-        )
-
-    eval_llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.0,
-    )
-    eval_embeddings = OpenAIEmbeddings(
-        model="text-embedding-3-small",
-    )
-    return eval_llm, eval_embeddings
-
 
 # ---------------------------------------------------------------------
 # Streamlit UI
@@ -187,20 +152,29 @@ with st.expander("ℹ️ What do these metrics mean?"):
         "All metrics are in [0, 1]. Higher is better. Use them to compare different RAG settings and pipelines."
     )
 
-# Load chat DB
-chat_db = load_chat_db()
-if not chat_db:
-    st.warning(
-        f"No chat sessions found in `{CHAT_DB_PATH}`. "
-        "Go to the Chatbot Q&A page, have some conversations, "
-        "and make sure you save chats before evaluating."
-    )
-    st.stop()
+# [+] Data to evaluate: test set answers or saved chats
+data_source = st.radio(
+    "Data to evaluate",
+    [f"Test set answers ({ANSWERS_PATH.name})", f"Saved chats ({CHAT_DB_PATH.name})"],
+    horizontal=True,
+)
+if data_source.startswith("Test set"):
+    if not ANSWERS_PATH.exists():
+        st.warning(f"`{ANSWERS_PATH}` not found: run `python eval/run_eval.py` first.")
+        st.stop()
+    dataset = build_ragas_dataset_from_answers(ANSWERS_PATH)
+else:
+    chat_db = load_chat_db()
+    if not chat_db:
+        st.warning(
+            f"No chat sessions found in `{CHAT_DB_PATH}`. "
+            "Go to the Chatbot Q&A page, have some conversations, "
+            "and make sure you save chats before evaluating."
+        )
+        st.stop()
+    st.success(f"Loaded {len(chat_db)} saved chat session(s).")
+    dataset = build_ragas_dataset_from_chats(chat_db)
 
-st.success(f"Loaded {len(chat_db)} saved chat session(s).")
-
-# Build dataset and convert to DataFrame for manual editing
-dataset = build_ragas_dataset_from_chats(chat_db)
 num_rows = len(dataset)
 
 if num_rows == 0:
@@ -228,9 +202,9 @@ df_edited = st.data_editor(
         "answer": st.column_config.TextColumn("Answer", disabled=True),
         "contexts": st.column_config.ListColumn("Contexts", disabled=True),
         "ground_truth": st.column_config.TextColumn("Ground truth (optional label)"),
-        "chat_id": st.column_config.NumberColumn("Chat ID", disabled=True),
+        "chat_id": st.column_config.TextColumn("Chat ID", disabled=True),
     },
-    use_container_width=True,
+    width="stretch",
     key="ragas_gt_editor",
 )
 
@@ -312,62 +286,26 @@ dataset_eval = Dataset.from_pandas(df_eval, preserve_index=False)
 # Run evaluation
 # ---------------------------------------------------------------------
 if st.button("Run RAGAS evaluation"):
-    try:
-        eval_llm, eval_embeddings = get_ragas_models()
-    except RuntimeError as e:
-        st.error(str(e))
-        st.stop()
-
-    # Metrics to compute:
-    metrics = [
-        context_precision,
-        context_recall,
-        faithfulness,
-        answer_relevancy,
-        answer_correctness,
-    ]
-
     with st.spinner("Running RAGAS metrics..."):
         try:
-            result = evaluate(
-                dataset=dataset_eval,
-                metrics=metrics,
-                llm=eval_llm,
-                embeddings=eval_embeddings,
-                show_progress=True,
-            )
+            df_scores = run_ragas(dataset_eval, config)  # [~] metrics in backend/ragas_eval.py
         except Exception as e:
             st.error(f"Error during RAGAS evaluation: {e}")
             st.stop()
 
     st.success("Evaluation completed.")
     st.subheader("Per-row metric scores")
+    st.dataframe(df_scores, width="stretch")
 
-    # Result → pandas
-    try:
-        df_scores = result.to_pandas()
-    except Exception as e:
-        st.error(f"Could not convert RAGAS result to pandas: {e}")
-        st.stop()
-
-    st.dataframe(df_scores, use_container_width=True)
-
-    # Compute overall mean per metric
-    non_metric_cols = {"question", "answer", "contexts", "ground_truth", "chat_id"}
-
-    numeric_metric_cols = [
-        c
-        for c in df_scores.columns
-        if c not in non_metric_cols and str(df_scores[c].dtype) not in ("object", "string")
-    ]
-
-    if not numeric_metric_cols:
-        st.warning(
-            "No numeric metric columns found in the RAGAS result. "
-            "Check that the metrics ran correctly."
-        )
+    # [+] Task A vs Task B table for test set answers
+    if df_scores["chat_id"].astype(str).str.contains("/").all():
+        st.subheader("Task A vs Task B (mean scores)")
+        st.dataframe(compare_systems(df_scores), width="stretch")
     else:
         st.subheader("Aggregated (mean) scores")
-        for col in numeric_metric_cols:
-            mean_score = float(df_scores[col].mean())
-            st.write(f"{col}: {mean_score:.3f}")
+        st.dataframe(df_scores.mean(numeric_only=True).round(3), width="stretch")
+
+    # [+] scores saved to CSV
+    out = Path("eval/results/ragas_page.csv")
+    df_scores.to_csv(out, index=False)
+    st.caption(f"Scores saved in `{out}`")

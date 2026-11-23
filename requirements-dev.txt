@@ -1,0 +1,5 @@
+# Development-only tools (EDA charts, tests). Not needed in the deployed app.
+-r requirements.txt
+matplotlib==3.10.7
+pytest==8.4.2
+tabulate==0.9.0

@@ -1,0 +1,75 @@
+# backend/chat_logger.py
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
+
+from langchain_core.documents import Document
+
+from .config import RAGConfig
+
+# [+] Role of this module:
+# Logging of every conversation turn (one JSON object per line), used by the
+# RAGAS evaluation and to study which countries and document types are used.
+
+LOG_PATH = Path("logs/chat_log.jsonl")
+
+
+# [+] Key metadata of each retrieved document, in the order of the citations [S1], [S2]...
+def source_info(docs: List[Document]) -> List[dict]:
+    return [
+        {
+            "label": f"S{i}",
+            "country": d.metadata.get("country"),
+            "law": d.metadata.get("law"),
+            "type": d.metadata.get("doc_type"),
+            "article": d.metadata.get("article"),
+            "case_id": d.metadata.get("case_id"),
+            "articles_cited": d.metadata.get("articles_cited", []),
+            "proceeding": d.metadata.get("proceeding"),
+            "duration": d.metadata.get("duration"),
+            "cost": d.metadata.get("cost"),
+            "score": d.metadata.get("score"),
+            "db": d.metadata.get("db_name"),
+            "id": d.metadata.get("id"),
+            "source": Path(str(d.metadata.get("source", ""))).name,
+        }
+        for i, d in enumerate(docs, start=1)
+    ]
+
+
+# [+] Append one turn (question, answer, sources, contexts, trace, latency) to the JSONL log.
+def log_turn(
+    question: str,
+    answer: str,
+    docs: List[Document],
+    config: RAGConfig,
+    mode: str,
+    latency_s: float,
+    session_id: str = "",
+    trace: Optional[str] = None,
+    path: Path = LOG_PATH,
+) -> dict:
+    record = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "session_id": session_id,
+        "mode": mode,  # "single" (Task A) or "multi" (Task B)
+        "question": question,
+        "answer": answer,
+        "sources": source_info(docs),
+        # full text given to the LLM: RAGAS computes the context metrics on it
+        "contexts": [d.page_content for d in docs],
+        "trace": trace,
+        "latency_s": round(latency_s, 2),
+        "models": {
+            "router": config.router_model_name,
+            "generator": config.llm_model_name,
+            "embedding": config.embedding_model_name,
+        },
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return record

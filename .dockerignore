@@ -1,0 +1,9 @@
+# never put secrets or local environments in the image
+.env
+.venv
+__pycache__
+*.pyc
+.git
+# local experiments and logs are not needed in the image
+vector_store_minilm
+logs

@@ -1,26 +1,33 @@
-streamlit>=1.37.0
-faiss-cpu
+# Versions pinned on 2026-11-12 (Python 3.11). `pip check` clean.
+# LangChain is kept on the 0.3 series: ragas imports modules removed in
+# langchain-community 0.4 / langchain 1.x.
 
-huggingface-hub>=0.23.0
+# UI
+streamlit==1.67.0
 
-langchain>=0.3.0
-langchain-openai>=0.1.0
-langchain-community>=0.3.0
-langchain-huggingface>=0.1.0
+# Vector store
+faiss-cpu==1.16.0
 
-openai>=1.0.0
-numpy
-python-dotenv
-sentence-transformers
-transformers
-torch
+# LangChain 0.3 family
+langchain==0.3.30
+langchain-core==0.3.86
+langchain-community==0.3.31
+langchain-openai==0.3.35
+langchain-huggingface==0.3.1
+langchain-text-splitters==0.3.11
 
-# For Unsloth fine-tuned models (comment out if you don't use it)
-unsloth
+# LLM clients (OpenAI SDK is also used for Groq's OpenAI-compatible API)
+openai==1.109.1
 
-# Multi-agent orchestration
-agno>=0.4.0
+# Embeddings (local)
+sentence-transformers==6.3.0
+transformers==5.22.2
+torch==2.15.0
 
-ragas>=0.1.10
-datasets>=2.14.0
+# Utilities
+numpy==2.4.6
+python-dotenv==1.2.4
 
+# Evaluation
+ragas==0.3.9
+datasets==5.2.0

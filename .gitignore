@@ -3,3 +3,15 @@ data/
 .env
 __pycache__/
 *.pyc   
+# FAISS DBs: rebuilt with scripts/build_indexes.py
+vector_store*/
+
+# Conversation logs (may contain user data)
+logs/
+
+# LaTeX build files
+*.aux
+*.log
+
+# RAGAS run logs
+eval/results/*_log*.txt

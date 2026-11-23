@@ -1,0 +1,5 @@
+row,metric,value
+30,faithfulness,0.8235294117647058
+37,faithfulness,1.0
+37,answer_correctness,
+55,answer_correctness,

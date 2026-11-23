@@ -1,0 +1,4 @@
+row,metric,value
+13,context_precision,0.7499999999625
+19,answer_relevancy,1.0
+19,answer_correctness,0.37037500434740134

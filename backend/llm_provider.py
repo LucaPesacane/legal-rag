@@ -16,10 +16,12 @@ from .config import RAGConfig
 # Abstracts away LLM details so all other modules call the same simple interface, regardless of provider or model.
 
 
+# [~] Groq added as provider.
 class LLMBackend:
     """
     Unified interface for LLM providers:
 
+      - groq         → ChatOpenAI pointed at Groq's OpenAI-compatible endpoint
       - openai       → ChatOpenAI
       - huggingface  → HuggingFaceEndpoint + ChatHuggingFace
 
@@ -31,10 +33,33 @@ class LLMBackend:
         HUGGINGFACEHUB_API_TOKEN (or HF_TOKEN) in your .env.
     """
 
+    # [~] max_tokens and temperature read from the config.
     def __init__(self, config: RAGConfig):
         self.config = config
-        self.max_new_tokens = 512
-        self.temperature = 0.2
+        self.max_new_tokens = getattr(config, "max_tokens", 512)
+        self.temperature = getattr(config, "temperature", 0.2)
+
+    # ------------------------------------------------------------------
+    # GROQ (OpenAI-compatible API)
+    # ------------------------------------------------------------------
+    GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
+    # [+] Groq chat model: same API as OpenAI, only base_url and api_key change.
+    def _build_groq_chat(self) -> Optional[BaseChatModel]:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            print("[LLMBackend] GROQ_API_KEY not set.")
+            return None
+        return ChatOpenAI(
+            model=self.config.llm_model_name,
+            base_url=self.GROQ_BASE_URL,
+            api_key=api_key,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            reasoning_effort=self.config.reasoning_effort or None,  # only gpt-oss models
+            max_retries=5,  # retry on HTTP 429 (free tier limits)
+            timeout=60,
+        )
 
     # ------------------------------------------------------------------
     # OPENAI
@@ -85,8 +110,12 @@ class LLMBackend:
     # ------------------------------------------------------------------
     # Factory
     # ------------------------------------------------------------------
+    # [~] Groq branch added.
     def get_langchain_llm(self) -> Optional[BaseChatModel]:
         provider = self.config.llm_provider
+
+        if provider == "groq":
+            return self._build_groq_chat()
 
         if provider == "openai":
             return self._build_openai_chat()
@@ -99,6 +128,7 @@ class LLMBackend:
     # ------------------------------------------------------------------
     # High-level chat method used by rag_pipeline
     # ------------------------------------------------------------------
+    # [~] Groq hint added to the configuration error message.
     def chat(self, system_prompt: str, user_prompt: str) -> str:
         llm = self.get_langchain_llm()
         if llm is None:
@@ -106,6 +136,8 @@ class LLMBackend:
                 "LLM provider is not correctly configured or the model could not be "
                 "loaded.\n\n"
                 "Please check your Configuration page:\n"
+                "- If provider = **groq**, make sure `GROQ_API_KEY` is set in `.env` "
+                "and the model name exists on Groq (e.g. `openai/gpt-oss-120b`).\n"
                 "- If provider = **huggingface**, set `llm_model_name` to a valid "
                 "Hugging Face repo id (e.g. `mistralai/Mistral-7B-Instruct-v0.3`) and "
                 "set `HUGGINGFACEHUB_API_TOKEN` in `.env` for private/gated models.\n"

@@ -23,13 +23,15 @@ st.subheader("LLM Settings")
 col1, col2 = st.columns(2)
 
 with col1:
+    # [~] groq provider added
     config.llm_provider = st.selectbox(
         "LLM Provider",
-        options=["openai", "huggingface"],
-        index=["openai", "huggingface"].index(config.llm_provider)
-        if config.llm_provider in ["openai", "huggingface"]
+        options=["groq", "openai", "huggingface"],
+        index=["groq", "openai", "huggingface"].index(config.llm_provider)
+        if config.llm_provider in ["groq", "openai", "huggingface"]
         else 0,
         help=(
+            "- **groq**: Groq's OpenAI-compatible API (needs `GROQ_API_KEY` in `.env`).\n"
             "- **openai**: uses ChatOpenAI (needs `OPENAI_API_KEY` in `.env`).\n"
             "- **huggingface**: any HF generative model (hub id or local path)."
         ),
@@ -40,10 +42,31 @@ with col2:
         "LLM Model Name or Path",
         value=config.llm_model_name,
         help=(
+            "For Groq: e.g. `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`.\n"
             "For OpenAI: e.g. `gpt-4o-mini`.\n"
             "For Hugging Face: model id (e.g. `meta-llama/Llama-3.1-8B-Instruct`) "
             "or a local folder path."
         ),
+    )
+
+# [+] Router model and temperature of the answers
+col_l1, col_l2 = st.columns(2)
+
+with col_l1:
+    config.router_model_name = st.text_input(
+        "Router / supervisor routing model",
+        value=config.router_model_name,
+        help="Smaller model used for the routing decision (Thought step of Task A, supervisor routing of Task B).",
+    )
+
+with col_l2:
+    config.temperature = st.slider(
+        "Temperature of the answers",
+        min_value=0.0,
+        max_value=1.0,
+        value=float(config.temperature),
+        step=0.05,
+        help="Low values give answers faithful to the sources and reproducible.",
     )
 
 # ---------------- EMBEDDING SETTINGS ----------------
@@ -146,15 +169,45 @@ with col_r1:
         help="Number of documents kept after similarity-based filtering.",
     )
 
+    # [+] candidates per DB and similarity threshold
+    config.k_fetch = st.slider(
+        "Candidates retrieved from each DB (before filtering)",
+        min_value=5,
+        max_value=50,
+        value=config.k_fetch,
+        help="More candidates than needed are retrieved, then filtered and reranked by cosine similarity.",
+    )
+    config.min_sim = st.slider(
+        "Minimum cosine similarity",
+        min_value=0.0,
+        max_value=0.9,
+        value=float(config.min_sim),
+        step=0.05,
+        help="Documents below this similarity are discarded.",
+    )
+
 with col_r2:
+    # [+] search with the original question, metadata of past cases
+    config.search_original_question = st.checkbox(
+        "Search also with the original question (guide 8)",
+        value=config.search_original_question,
+        help="The DBs are searched with the English translation and with the question as written.",
+    )
+    config.add_case_details = st.checkbox(
+        "Show the metadata of past cases to reranker and LLM",
+        value=config.add_case_details,
+        help="Duration, cost, proceeding, articles cited... (from the JSON metadata, files not changed).",
+    )
+    # [~] the reranker is now implemented (cross-encoder)
     config.use_rerank = st.checkbox(
-        "Use extra post-retrieval reranker (placeholder)",
+        "Use a cross-encoder reranker after retrieval (guide 8)",
         value=config.use_rerank,
         help=(
-            "Reserved flag for plugging in an advanced reranker later.\n"
-            "Current pipeline already does cosine-similarity filtering and reranking."
+            "After cosine filtering, a cross-encoder reads question and document together "
+            "and re-ranks the candidates (more precise, slower). Model below."
         ),
     )
+    config.reranker_model_name = st.text_input("Reranker model", value=config.reranker_model_name)
 
 # ---------------- AGENTIC MODE (within each RAG agent) ----------------
 st.subheader("Agentic RAG Reasoning Mode (per agent)")
@@ -166,8 +219,8 @@ config.agentic_mode = st.radio(
     if config.agentic_mode in ["standard_rag", "react", "hybrid_legal"]
     else 0,
     help=(
-        "- standard_rag: classic RAG.\n"
-        "- react: agentic reasoning (Thought / Action / Observation).\n"
+        "- standard_rag / react: Task A single agent with ReAct-style logic "
+        "(Thought / Action / Observation / Answer) and Task B multi-agent.\n"
         "- hybrid_legal: legal metadata extraction (Succession/Divorce + cost, "
         "duration, civil codes, etc.) + metadata-aware vector search."
     ),
@@ -175,6 +228,18 @@ config.agentic_mode = st.radio(
 
 
 # ---------------- MULTI-AGENT SUPERVISOR ----------------
+# [+] Extension: filter past cases by legal area
+st.subheader("Extensions (exam guide 8)")
+
+config.filter_cases_by_law = st.checkbox(
+    "Filter past cases by legal area (inheritance / divorce)",
+    value=config.filter_cases_by_law,
+    help=(
+        "The router detects the legal area of the question; in the past cases DBs only the cases "
+        "of that area are searched (metadata filter first, then vector similarity)."
+    ),
+)
+
 st.subheader("Multi-agent Supervisor (tool-calling)")
 
 config.use_multiagent = st.checkbox(
